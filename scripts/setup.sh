@@ -12,7 +12,7 @@ if command -v composer >/dev/null; then
 elif [[ -f /workspace/toolchain/composer.phar ]]; then
   php /workspace/toolchain/composer.phar install --no-interaction --prefer-dist
 else
-  echo 'Install Composer 2 and PHP 8.4 with mbstring, XML, SQLite, curl, zip and fileinfo.' >&2
+  echo 'Install Composer 2 and PHP 8.4 with intl, mbstring, XML, SQLite, curl, zip and fileinfo.' >&2
   exit 1
 fi
 if [[ ! -f .env ]]; then cp .env.example .env; fi
@@ -21,6 +21,8 @@ if ! php -r 'require "vendor/autoload.php"; $app=require "bootstrap/app.php"; $a
 fi
 if [[ ! -e database/database.sqlite ]]; then touch database/database.sqlite; fi
 php artisan migrate --seed --force
+php artisan filament:assets
+mkdir -p storage/fonts
 if [[ ! -e public/storage ]]; then php artisan storage:link; fi
 cd "$project_root/frontend"
 npm ci --no-audit --no-fund

@@ -20,7 +20,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: mbstring, dom, xml, pdo_sqlite, sqlite3, curl, zip, fileinfo
+          extensions: intl, mbstring, dom, xml, pdo_sqlite, sqlite3, curl, zip, fileinfo
           tools: composer:v2
           coverage: none
       - uses: actions/setup-node@v4
@@ -74,6 +74,7 @@ jobs:
           ssh "${ssh_options[@]}" "$SSH_USER@$SSH_HOST" "bash -s -- '$remote_release'" < scripts/hostinger-update.sh
       - name: Check live responses
         run: |
+          curl --fail --silent --show-error --retry 3 https://salmon-turtle-767162.hostingersite.com/manage/login > /dev/null
           curl --fail --silent --show-error --retry 3 https://salmon-turtle-767162.hostingersite.com/up > /dev/null
           curl --fail --silent --show-error --retry 3 https://salmon-turtle-767162.hostingersite.com/api/settings -o "$RUNNER_TEMP/live-settings.json"
           python3 -c 'import json,os; d=json.load(open(os.environ["RUNNER_TEMP"]+"/live-settings.json")); assert isinstance(d["admin_data"]["services"],list); assert "seo_data" in d'

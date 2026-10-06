@@ -8,7 +8,7 @@ Use a test subdomain with HTTPS and PHP 8.4 enabled in hPanel. Enable the PHP ex
 
 Upload and extract `chatgpt-hostinger.zip` there, so its `laravel` and `public_html` directories are siblings. The `laravel` folder must remain outside `public_html`. Do not replace an existing site's files without a backup. The release's bootstrap and public entrypoint already use this directory layout.
 
-Connect through the SSH access details provided by hPanel and run from the uploaded `laravel` folder:
+For a fresh installation, connect through the SSH access details provided by hPanel and run from the uploaded `laravel` folder. For the existing site, use the GitHub deployment workflow described in GITHUB-DEPLOYMENT.md; it preserves your key, database, credentials and uploads.
 
 ```sh
 cp .env.example .env
@@ -31,6 +31,10 @@ If the plan has no SSH, a different deployment route is required to securely ini
 
 Use Hostinger's Git feature only if it is available on your plan. A normal Git checkout of this repository does not have the upload release's sibling folder layout. Clone the repository outside `public_html`, run `bash scripts/setup.sh` with PHP 8.4, Composer and Node available, and configure the domain's document root to the checkout's `backend/public` directory if your plan supports it. Set the production `.env` and run the initialization commands above.
 
-For private repositories, configure the deployment key provided by Hostinger in GitHub according to hPanel's Git setup flow. Do not enter private keys, passwords or tokens into chat. Push the project source to GitHub before connecting it: the current migration files have not been pushed by this assistant.
+For private repositories, configure the deployment key provided by Hostinger in GitHub according to hPanel's Git setup flow. Do not enter private keys, passwords or tokens into chat. The application source and manual deployment workflow are maintained in this GitHub repository.
 
 If the hosting plan cannot change the document root or run the build tools, use the prepared upload release for the test deployment. A VPS can support a full Git deployment with a PHP web server and persistent database/media directories.
+
+## Business panel update
+
+Use `/manage` after deploying the current GitHub source. Enable PHP `intl` alongside the existing PHP 8.4 extensions. Existing admin credentials, content, and uploads are preserved. Read [BUSINESS-ADMIN.md](BUSINESS-ADMIN.md) before issuing client documents.

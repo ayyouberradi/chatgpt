@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, ArrowLeft, Check, Send, MessageCircle } from 'lucide-react';
 import { sanitizeInput, contactFormSchema } from '../../lib/validation';
 import { trackContactForm } from '../../lib/analytics';
+import { request } from '../../lib/http';
 import { checkRateLimit } from '../../lib/rateLimit';
 
 const steps = [
@@ -157,24 +158,17 @@ export default function MultiStepForm() {
       contactFormSchema.parse(sanitizedData);
 
       setIsSubmitting(true);
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await request('/session');
+      await request('/enquiries', { method: 'POST', body: JSON.stringify(sanitizedData) });
       setIsSubmitting(false);
       setIsSubmitted(true);
       trackContactForm('Success');
 
-      const serviceLabel = steps[0].options.find((o) => o.value === sanitizedData.service)?.label || sanitizedData.service;
-      const businessLabel = steps[1].options.find((o) => o.value === sanitizedData.business)?.label || sanitizedData.business;
-      const budgetLabel = steps[2].options.find((o) => o.value === sanitizedData.budget)?.label || sanitizedData.budget;
-      const timelineLabel = steps[3].options.find((o) => o.value === sanitizedData.timeline)?.label || sanitizedData.timeline;
-
-      const message = encodeURIComponent(
-        `Hello Ayoub!\n\nI'm interested in working together.\n\n*Service:* ${serviceLabel}\n*Business:* ${businessLabel}\n*Budget:* ${budgetLabel}\n*Timeline:* ${timelineLabel}\n\n*Name:* ${sanitizedData.name}\n*Email:* ${sanitizedData.email}\n*Phone:* ${sanitizedData.phone || 'Not provided'}\n\n*Message:*\n${sanitizedData.message || 'No additional message'}`
-      );
-
-      window.open(`https://wa.me/212708295518?text=${message}`, '_blank');
     } catch (e: any) {
-      setError(e.errors?.[0]?.message || 'Invalid form data. Please check your inputs.');
+      setError(e.errors?.[0]?.message || e.message || 'Please check your inputs and try again.');
       trackContactForm('Error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -194,8 +188,8 @@ export default function MultiStepForm() {
         >
           <Check className="w-10 h-10" />
         </motion.div>
-        <h3 className="text-2xl font-bold mb-4">Message Sent!</h3>
-        <p className="text-secondary mb-8">Thank you for reaching out. I'll get back to you within 24 hours.</p>
+        <h3 className="text-2xl font-bold mb-4">Enquiry received!</h3>
+        <p className="text-secondary mb-8">Thank you for reaching out. Your enquiry has been saved. You can also contact me on WhatsApp.</p>
         <motion.a
           href="https://wa.me/212708295518"
           target="_blank"

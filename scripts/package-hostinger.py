@@ -5,7 +5,7 @@ import os, shutil, subprocess, tempfile, zipfile
 root = Path(__file__).resolve().parent.parent
 release = Path(tempfile.mkdtemp(prefix='hostinger-release-'))
 app = release / 'laravel'
-shutil.copytree(root / 'backend', app, ignore=shutil.ignore_patterns('vendor', '.env', '*.sqlite*', '*.log', '.git', 'node_modules', 'tests', '.github'))
+shutil.copytree(root / 'backend', app, ignore=shutil.ignore_patterns('vendor', '.env', '*.sqlite*', '*.log', '.git', 'node_modules', 'tests', '.github', '.phpunit.result.cache'))
 for relative in ['bootstrap/cache', 'storage/framework/cache/data', 'storage/framework/views', 'storage/framework/sessions', 'storage/framework/testing', 'storage/app/public/media']:
     folder = app / relative
     if folder.exists(): shutil.rmtree(folder)
@@ -25,7 +25,9 @@ environment = os.environ.copy()
 if Path('/workspace/toolchain/bin/php').exists(): environment['PATH'] = '/workspace/toolchain/bin:' + environment['PATH']
 composer = ['composer'] if shutil.which('composer') else ['php', '/workspace/toolchain/composer.phar']
 subprocess.run(composer + ['install', '--no-dev', '--prefer-dist', '--no-interaction', '--optimize-autoloader'], cwd=app, env=environment, check=True)
-shutil.copy2(root / 'HOSTINGER.md', release / 'HOSTINGER.md')
+subprocess.run(['php', 'artisan', 'filament:assets'], cwd=app, env=environment, check=True)
+for document in ['HOSTINGER.md', 'BUSINESS-ADMIN.md', 'WEBSITE-REVIEW.md']:
+    shutil.copy2(root / document, release / document)
 out = root.parent / 'chatgpt-hostinger.zip'
 with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as archive:
     for file in release.rglob('*'):

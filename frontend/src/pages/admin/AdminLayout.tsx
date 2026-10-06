@@ -13,7 +13,7 @@ const navItems = [
   { name: 'Retainers', icon: DollarSign, path: '/admin/retainers' },
   { name: 'Packages', icon: Scroll, path: '/admin/packages' },
   { name: 'Skills', icon: Award, path: '/admin/skills' },
-  { name: 'Clients', icon: Building2, path: '/admin/clients' },
+  { name: 'Client logos', icon: Building2, path: '/admin/clients' },
   { name: 'About', icon: User, path: '/admin/about' },
   { name: 'Media', icon: ImageIcon, path: '/admin/media' },
   { name: 'SEO & Settings', icon: Settings, path: '/admin/settings' },
@@ -49,6 +49,10 @@ export default function AdminLayout() {
         
         <div className="flex-1 overflow-y-auto p-6 pt-0 no-scrollbar pb-24">
           <nav className="space-y-2">
+            <a href="/manage" className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all" style={{ color: 'var(--accent)' }}>
+              <DollarSign size={20} />
+              <span>Business admin</span>
+            </a>
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
@@ -96,6 +100,10 @@ export default function AdminLayout() {
         
         <div className="flex-1 overflow-y-auto p-6 pt-0 no-scrollbar pb-24">
           <nav className="space-y-2">
+            <a href="/manage" className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all" style={{ color: 'var(--accent)' }}>
+              <DollarSign size={20} />
+              <span>Business admin</span>
+            </a>
             {navItems.map((item) => {
               const isActive = location.pathname === item.path;
               return (

@@ -4,7 +4,7 @@ The supplied React design, routes, animations, theme switching, portfolio, case 
 
 ## Setup
 
-Requires PHP 8.4+ (the dependency lock targets PHP 8.4), Composer 2, Node.js 20.19+ and npm. Enable PHP mbstring, XML/DOM, PDO SQLite, curl, zip, tokenizer, ctype, fileinfo and iconv. The cloud workspace includes a verified PHP runtime and Composer under `/workspace/toolchain`; `scripts/setup.sh` uses them automatically.
+Requires PHP 8.4+ (the dependency lock targets PHP 8.4), Composer 2, Node.js 20.19+ and npm. Enable PHP intl, mbstring, XML/DOM, PDO SQLite, curl, zip, tokenizer, ctype, fileinfo and iconv. The cloud workspace includes a verified PHP runtime and Composer under `/workspace/toolchain`; `scripts/setup.sh` uses them automatically.
 
 From the project root:
 
@@ -50,3 +50,7 @@ The Composer lock uses GitHub codeload URLs pinned to the original package commi
 ## GitHub deployment
 
 See [GITHUB-DEPLOYMENT.md](GITHUB-DEPLOYMENT.md) for the manual GitHub Actions workflow, SSH key setup and update safeguards for the existing Hostinger site.
+
+## Business administration
+
+The Laravel / Filament business panel at `/manage` uses the existing administrator login and adds enquiry capture, clients, scoped services, quotes, contracts, invoices, credit notes, PDF downloads, and recorded payments. See [BUSINESS-ADMIN.md](BUSINESS-ADMIN.md) for configuration and workflows, and [WEBSITE-REVIEW.md](WEBSITE-REVIEW.md) for the review and roadmap. PHP 8.4+ and the intl extension are required.

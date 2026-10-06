@@ -1,0 +1,52 @@
+# Business admin
+
+The new Laravel / Filament panel lives at `/manage`. Sign in with your existing administrator email and password. Website content and media remain at `/admin`, linked from the new panel.
+
+## Start here
+
+1. Open **Business settings** and edit the existing row. Enter your legal business name, billing address, email, business status, relevant identifiers, payment instructions, and tax treatment. Defaults are French documents and MAD; EUR/USD and English are also available. Issuing is blocked until identity and tax treatment are configured. No VAT rate is assumed.
+2. Review **Service catalogue**. Existing website services are imported once as starting entries. Check each price, currency, billing period, deliverables, exclusions, and included revisions. Catalogue pricing is separate from public website marketing prices.
+3. Complete and review **Contract templates**, then mark appropriate templates approved. The initial French/English entries are unapproved drafting prompts. Changing a template does not rewrite existing contracts.
+4. Add a client with their billing address. Create a quote, select services or enter custom lines, and preview its PDF. Save before opening the PDF or issuing.
+
+## Sales workflow
+
+**Website enquiry → client → quote → accepted quote → contract / invoice → payment**
+
+- Enquiries record the service, business type, budget, timeline, and contact information from the public form. Set status, follow-up date, and internal notes; convert an enquiry to a client.
+- A service selection copies its deliverables, exclusions, revisions, and price into the draft. Later catalogue changes leave the copied line items intact.
+- Enter quantities with up to three decimal places and unit prices / fixed discounts with up to two. Calculations use integer minor units, with half-up rounding per line and for tax.
+- Separate one-time, monthly, and yearly charges into different documents. Recurring documents describe the period; this version does not automatically bill subscriptions.
+- Use the row's **Workflow** menu to issue a quote. Issuing assigns a permanent sequential number and locks contents. Numbers are separate by document type and year: `DEV`, `CTR`, `FAC`, and `AV`.
+- Record client acceptance after receiving it, then generate contract and invoice drafts from that accepted quote. Choose an approved contract template and complete its terms. Service scope appears alongside terms in the PDF.
+- Record a signed contract after receiving the signed agreement. This is a manual record, not an electronic signature service.
+- For a deposit invoice, reduce the generated draft's lines to the agreed deposit amount. Create the final invoice from the accepted quote and adjust it to the remaining amount. Issued invoices linked to a quote cannot exceed that quote's total.
+- Record received payments on issued invoices. Overpayments are rejected. Correct an incorrect payment by voiding it with a reason and recording a replacement; payment records are not deleted.
+- Create credit-note drafts against an issued invoice and adjust the lines before issuing. Credits reduce unpaid balance. This version blocks credits exceeding unpaid balance; refunds of paid invoices need a separate accounting process.
+- Revise an issued quote by creating a new draft revision. Existing issued quotes, contracts, invoices, and credit notes cannot be edited or deleted.
+
+## Documents and access
+
+PDFs use the document language and currency, copied line-item scope, and the issuer/client identity snapshots captured when issued. Internal notes are not printed. Drafts carry a draft banner. Invoice PDFs also show recorded payments, credits, and current balance. Downloads require an administrator session.
+
+The dashboard shows enquiry counts, follow-ups, draft quotes, outstanding balances per currency, and overdue invoices. The activity log records issuing, acceptance, signatures, payments, credits, and client conversion. Only administrators can access business records or modify website content. No client portal or staff permissions manager is included yet.
+
+## Deployment
+
+Use GitHub **Actions → Deploy to Hostinger → Run workflow** on `main` after pulling this update. The workflow remains manual.
+
+Hostinger needs PHP **8.4+** with **intl**, mbstring, DOM/XML, SQLite, curl, zip, and fileinfo enabled for both CLI and web PHP. The update checks the new dependency requirements before taking the site offline. If it reports a missing extension, enable it in hPanel **Advanced → PHP Configuration → PHP extensions**, then rerun the workflow.
+
+The updater backs up the existing SQLite database outside the public directory, preserves `.env`, administrator passwords, content, uploads, and storage link, and applies the new migration without reseeding. Existing administrator accounts receive the administrator role. Filament assets ship inside the release; PHP `exec` and `symlink` are not needed.
+
+After deployment, check `/manage/login`, the public enquiry form, and `/admin/media`. Configure issuer/tax/template details before issuing real documents. Database backups remain under `laravel/storage/app/deployment-backups`; maintain a separate off-server backup and test restoration before relying on the system as your only financial record.
+
+## Recommended next additions
+
+1. A client portal for quote review, contract downloads, invoice balance, and proof-of-payment uploads.
+2. Authenticated electronic signatures through a dedicated provider, retaining signed copies and signature evidence.
+3. Transactional email with delivery status, manually approved invoice reminders, and enquiry notifications after SMTP is configured.
+4. Project milestones, client approvals, change requests, and delivery checklists linked to the accepted scope.
+5. Accountant-reviewed financial exports, paid-invoice refund handling, and payment-provider integration appropriate to the business's merchant account.
+
+Verification includes automated workflow and authorization tests, PDF rendering, desktop/mobile browser checks, and a simulated upgrade of the previous Hostinger release. Live hosting verification still requires running the GitHub deployment workflow.

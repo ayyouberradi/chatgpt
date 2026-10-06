@@ -8,6 +8,9 @@ release_root="${1:?Pass the uploaded release directory}"
 command -v rsync >/dev/null
 cd "$deploy_root/laravel"
 php -r 'if (PHP_VERSION_ID < 80400) { fwrite(STDERR, "PHP 8.4+ required\n"); exit(1); }'
+php -r 'foreach (["intl", "mbstring", "dom", "pdo_sqlite"] as $extension) { if (!extension_loaded($extension)) { fwrite(STDERR, "Enable PHP extension $extension in Hostinger PHP Configuration before deploying.\n"); exit(1); } }'
+# Verify the complete new dependency platform before changing the working site.
+php -r 'require $argv[1];' "$release_root/laravel/vendor/autoload.php"
 php artisan down --retry=60
 trap 'cd "$deploy_root/laravel"; php artisan up' EXIT
 # Back up the live SQLite database consistently before running migrations.
@@ -34,11 +37,15 @@ rsync -a --delete \
   "$release_root/laravel/" "$deploy_root/laravel/"
 # Keep old hashed frontend assets for browsers with an already-open tab.
 rsync -a --exclude='storage' "$release_root/public_html/" "$deploy_root/public_html/"
+# Rebuild dependency manifests after adding Filament; these contain no user data.
+rm -f bootstrap/cache/config.php bootstrap/cache/packages.php bootstrap/cache/services.php
+php artisan package:discover --ansi
 php artisan config:clear
 php artisan route:clear
 php artisan view:clear
 php artisan migrate --force
 php artisan config:cache
+mkdir -p storage/fonts
 # The existing shell-created storage link is preserved. No PHP symlink/exec needed.
 [[ -L "$deploy_root/public_html/storage" ]] || { echo 'Existing media storage link is missing' >&2; exit 1; }
 php artisan up

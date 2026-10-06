@@ -13,3 +13,9 @@
 *.log
 
 /.cache/
+
+/backend/public/js/filament/
+/backend/public/css/filament/
+/backend/public/fonts/filament/
+/backend/storage/fonts/*
+!/backend/storage/fonts/.gitignore
