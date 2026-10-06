@@ -54,9 +54,17 @@ jobs:
           test -n "$DEPLOY_KNOWN_HOSTS" || { echo 'Set HOSTINGER_KNOWN_HOSTS in repository secrets.'; exit 1; }
           mkdir -p "$RUNNER_TEMP/hostinger-ssh"
           chmod 700 "$RUNNER_TEMP/hostinger-ssh"
-          printf '%s\n' "$DEPLOY_SSH_KEY" > "$RUNNER_TEMP/hostinger-ssh/key"
-          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$RUNNER_TEMP/hostinger-ssh/known_hosts"
+          printf '%s\n' "$DEPLOY_SSH_KEY" | tr -d '\r' > "$RUNNER_TEMP/hostinger-ssh/key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | tr -d '\r' > "$RUNNER_TEMP/hostinger-ssh/known_hosts"
           chmod 600 "$RUNNER_TEMP/hostinger-ssh/key" "$RUNNER_TEMP/hostinger-ssh/known_hosts"
+          if ! ssh-keygen -y -P '' -f "$RUNNER_TEMP/hostinger-ssh/key" >/dev/null 2>&1; then
+            echo 'HOSTINGER_SSH_KEY must contain the complete private key with no passphrase. Copy ~/.ssh/hostinger_github directly into the GitHub secret; do not use the .pub file.'
+            exit 1
+          fi
+          if ! ssh-keygen -F "[$SSH_HOST]:$SSH_PORT" -f "$RUNNER_TEMP/hostinger-ssh/known_hosts" >/dev/null; then
+            echo 'HOSTINGER_KNOWN_HOSTS has no matching server entry. Copy the trusted records from your local known_hosts file.'
+            exit 1
+          fi
       - name: Upload and apply update
         run: |
           remote_release="$DEPLOY_ROOT/.github-release-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
