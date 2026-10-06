@@ -50,3 +50,13 @@ After deployment, check `/manage/login`, the public enquiry form, and `/admin/me
 5. Accountant-reviewed financial exports, paid-invoice refund handling, and payment-provider integration appropriate to the business's merchant account.
 
 Verification includes automated workflow and authorization tests, PDF rendering, desktop/mobile browser checks, and a simulated upgrade of the previous Hostinger release. Live hosting verification still requires running the GitHub deployment workflow.
+
+## Booking requests and WhatsApp
+
+Every website booking or WhatsApp entry now goes through `/book`. Submitting saves a lead (name, email, normalized phone, service, source, message, requested time and timezone), then opens WhatsApp addressed to the existing business number with the complete enquiry and its reference. The client taps **Send** in WhatsApp. If the browser does not open WhatsApp, the saved-request screen offers a continuation button. A failed save never opens WhatsApp. Retrying the same submission does not create another lead.
+
+The contact questionnaire uses the same save-first workflow, including its business, budget and timeline. Booking times are requests awaiting confirmation, not calendar reservations. There is no external calendar or incoming third-party booking integration in this release.
+
+In `/manage/leads` (**Leads & bookings**), review the request, requested time and contact permission, add internal notes, set a follow-up date, or convert the lead into a client. **Prepare WhatsApp** creates a draft with the lead reference; open it in WhatsApp and send it. In **WhatsApp follow-ups**, record a message as sent only after sending it, and choose the next follow-up date. Drafts and manually recorded sends are distinct, and sent history is preserved.
+
+WhatsApp opens with a prepared message; this release does not send messages through the WhatsApp Business API or automatically verify delivery. No Business Platform account is required. Contact opt-in is optional for the project questionnaire; booking requests require permission to discuss the request on WhatsApp. If someone asks to stop messages, disable their WhatsApp permission in the lead. Existing leads do not acquire permission automatically. Outgoing follow-up actions require a valid phone and permission.

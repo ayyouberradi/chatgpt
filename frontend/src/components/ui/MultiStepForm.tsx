@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, ArrowLeft, Check, Send, MessageCircle } from 'lucide-react';
 import { sanitizeInput, contactFormSchema } from '../../lib/validation';
@@ -64,6 +64,7 @@ interface FormData {
   phone: string;
   message: string;
   honeypot: string;
+  whatsapp_consent: boolean;
 }
 
 const initialState: FormData = {
@@ -76,9 +77,12 @@ const initialState: FormData = {
   phone: '',
   message: '',
   honeypot: '',
+  whatsapp_consent: false,
 };
 
 export default function MultiStepForm() {
+  const submissionKey = useRef(crypto.randomUUID());
+  const [whatsappUrl, setWhatsappUrl] = useState('');
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<FormData>(initialState);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -149,6 +153,7 @@ export default function MultiStepForm() {
     try {
       const sanitizedData = {
         ...formData,
+        submission_key: submissionKey.current,
         name: sanitizeInput(formData.name),
         email: sanitizeInput(formData.email),
         phone: sanitizeInput(formData.phone),
@@ -159,9 +164,11 @@ export default function MultiStepForm() {
 
       setIsSubmitting(true);
       await request('/session');
-      await request('/enquiries', { method: 'POST', body: JSON.stringify(sanitizedData) });
+      const received = await request<{ whatsapp_url: string }>('/enquiries', { method: 'POST', body: JSON.stringify(sanitizedData) });
+      setWhatsappUrl(received.whatsapp_url);
       setIsSubmitting(false);
       setIsSubmitted(true);
+      window.location.assign(received.whatsapp_url);
       trackContactForm('Success');
 
     } catch (e: any) {
@@ -189,9 +196,9 @@ export default function MultiStepForm() {
           <Check className="w-10 h-10" />
         </motion.div>
         <h3 className="text-2xl font-bold mb-4">Enquiry received!</h3>
-        <p className="text-secondary mb-8">Thank you for reaching out. Your enquiry has been saved. You can also contact me on WhatsApp.</p>
+        <p className="text-secondary mb-8">Thank you for reaching out. Your enquiry has been saved. Tap Send in WhatsApp to share your full details. If WhatsApp did not open, use the button below.</p>
         <motion.a
-          href="https://wa.me/212708295518"
+          href={whatsappUrl}
           target="_blank"
           rel="noopener noreferrer"
           whileHover={{ scale: 1.05 }}
@@ -364,6 +371,7 @@ export default function MultiStepForm() {
                   placeholder="+212 708 295518"
                 />
               </div>
+              <label className="flex gap-3 text-sm text-secondary"><input type="checkbox" checked={formData.whatsapp_consent} onChange={event => setFormData(previous => ({ ...previous, whatsapp_consent: event.target.checked }))} />I agree to WhatsApp follow-up about this request. Reply STOP to opt out. Include your phone number above to opt in.</label>
               <div>
                 <label htmlFor="message" className="block text-sm text-secondary mb-2">
                   Additional Message
@@ -467,7 +475,7 @@ export default function MultiStepForm() {
             ) : (
               <>
                 <Send className="w-4 h-4" />
-                Send Message
+                Save & open WhatsApp
               </>
             )}
           </motion.button>

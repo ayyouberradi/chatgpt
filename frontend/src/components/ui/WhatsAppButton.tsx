@@ -5,9 +5,7 @@ import { trackWhatsAppClick } from '../../lib/analytics';
 
 export default function WhatsAppButton() {
   const [isHovered, setIsHovered] = useState(false);
-  const phoneNumber = '212708295518';
-  const message = encodeURIComponent('Hello Ayoub! I\'m interested in your services and would like to discuss a project.');
-  const whatsappUrl = `https://wa.me/${phoneNumber}?text=${message}`;
+  const whatsappUrl = '/book?channel=whatsapp&source=floating_button';
 
   const handleClick = () => {
     trackWhatsAppClick('floating_button');
@@ -16,7 +14,6 @@ export default function WhatsAppButton() {
   return (
     <motion.a
       href={whatsappUrl}
-      target="_blank"
       rel="noopener noreferrer"
       onClick={handleClick}
       initial={{ scale: 0, opacity: 0 }}

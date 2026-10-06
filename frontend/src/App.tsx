@@ -32,6 +32,7 @@ const ServicesPage = lazyRetry(() => import('./pages/ServicesPage'));
 const PortfolioPage = lazyRetry(() => import('./pages/PortfolioPage'));
 const ProjectDetailsPage = lazyRetry(() => import('./pages/ProjectDetailsPage'));
 const CaseStudiesPage = lazyRetry(() => import('./pages/CaseStudiesPage'));
+const BookingPage = lazyRetry(() => import('./pages/BookingPage'));
 const ContactPage = lazyRetry(() => import('./pages/ContactPage'));
 const IndustryPage = lazyRetry(() => import('./pages/IndustryPage'));
 const CaseStudyPage = lazyRetry(() => import('./pages/CaseStudyPage'));
@@ -150,13 +151,14 @@ const Layout = () => {
             <Route path="/portfolio/:id" element={<PageWrapper><ProjectDetailsPage /></PageWrapper>} />
             <Route path="/case-studies" element={<PageWrapper><CaseStudiesPage /></PageWrapper>} />
             <Route path="/case-studies/:slug" element={<PageWrapper><CaseStudyPage /></PageWrapper>} />
+            <Route path="/book" element={<PageWrapper><BookingPage /></PageWrapper>} />
             <Route path="/contact" element={<PageWrapper><ContactPage /></PageWrapper>} />
             <Route path="/industries/:slug" element={<PageWrapper><IndustryPage /></PageWrapper>} />
           </Routes>
         </Suspense>
       </AnimatePresence>
       <Footer />
-      <WhatsAppButton />
+      {location.pathname !== '/book' && <WhatsAppButton />}
     </div>
   );
 };

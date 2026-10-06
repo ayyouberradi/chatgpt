@@ -146,7 +146,7 @@ export default function Header() {
                 </AnimatePresence>
               </motion.button>
 
-              <Link to="/contact" className="btn-primary text-sm">
+              <Link to="/book?source=header" className="btn-primary text-sm">
                 Get a Free Consultation
               </Link>
             </motion.div>
@@ -237,7 +237,7 @@ export default function Header() {
                 transition={{ delay: navLinks.length * 0.05 }}
                 className="mt-4"
               >
-                <Link to="/contact" className="btn-primary text-base">
+                <Link to="/book?source=header" className="btn-primary text-base">
                   Get a Free Consultation
                 </Link>
               </motion.div>

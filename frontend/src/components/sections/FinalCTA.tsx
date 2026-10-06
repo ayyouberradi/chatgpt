@@ -66,7 +66,7 @@ export default function FinalCTA() {
           className="flex flex-col sm:flex-row items-center justify-center gap-4"
         >
           <motion.a
-            href="https://wa.me/212708295518?text=Hello%20Ayoub!%20I'm%20interested%20in%20your%20services."
+            href="/book?channel=whatsapp&source=final_cta"
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => trackWhatsAppClick('final_cta')}

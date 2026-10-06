@@ -74,7 +74,7 @@ export default function ContactPage() {
             </motion.a>
 
             <motion.a
-              href="https://wa.me/212708295518"
+              href="/book?channel=whatsapp&source=contact_page"
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => trackWhatsAppClick('contact_page')}

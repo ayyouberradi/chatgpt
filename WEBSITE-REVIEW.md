@@ -15,10 +15,10 @@ This review is based on the repository and local browser rendering. Live adminis
 
 | Priority | Finding | Recommended change |
 | --- | --- | --- |
-| High | The previous contact form showed success after a simulated delay and only opened WhatsApp. It did not retain enquiries. | Fixed in this update: save enquiries in Laravel, show success after saving, and retain WhatsApp as an optional follow-up. |
+| High | The previous contact form showed success after a simulated delay and only opened WhatsApp. It did not retain enquiries. | Fixed in this update: save enquiries in Laravel before opening WhatsApp with the full enquiry and reference. |
 | High | The previous admin was a website editor, with no client, sales, contract, or invoice workflow. | Added a separate Filament business panel with relational records and document/payment workflows. |
 | High | Media listing could return a boolean MIME type, causing `startsWith` to crash. | The preceding fix normalizes backend MIME output and guards frontend input. Deploy current `main` to include it. |
-| Medium | The booking component links to a generic Calendly destination. | Replace it with your actual booking page or a direct contact call to action; do not imply a working calendar before configuring one. |
+| Medium | The booking component links to a generic Calendly destination. | Fixed: a dedicated booking request page saves a lead and opens WhatsApp. Requested times await confirmation. |
 | Medium | Footer privacy/terms links do not have corresponding page routes. | Add accurate policy pages covering enquiry storage, contact channels, and the actual service terms. |
 | Medium | Several portfolio images use external stock-image URLs, and some referenced client-logo files are absent from the bundled assets. | Use real project screenshots and verified client assets with permission. Check all images after hosting deployment. |
 | Medium | Case studies and testimonials need verifiable evidence to carry their full weight. | Publish concrete scope, dates, before/after measures, and attributable testimonials. Verify every numerical claim. |
@@ -45,3 +45,5 @@ Start with enquiry capture, clients, scoped service pricing, quotes, contracts, 
 Next, add a client portal with a simple timeline: quote received, accepted, agreement signed, deposit paid, work in progress, delivery approved, balance settled. Follow it with electronic signatures and transactional email. Add project milestones and change requests so requests outside the signed scope can generate a new approved quote.
 
 Avoid treating recurring marketing retainers as one-time charges. Keep their billing period explicit now and add scheduled billing only after payment/reminder behavior is defined. Keep all reporting grouped by currency rather than adding MAD, EUR, and USD totals together.
+
+Booking update: the generic Calendly placeholder has been replaced with a real lead capture form. Website WhatsApp entry links save the request first, then open a complete prepared enquiry for the client to send. Requested times remain subject to confirmation; an external calendar is not connected.

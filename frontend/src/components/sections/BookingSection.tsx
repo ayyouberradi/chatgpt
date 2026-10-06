@@ -1,17 +1,18 @@
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Calendar, MessageCircle, ArrowRight } from 'lucide-react';
 import { trackWhatsAppClick, trackCTAClick } from '../../lib/analytics';
 
 export default function BookingSection() {
+  const navigate = useNavigate();
   const handleWhatsApp = () => {
     trackWhatsAppClick('booking_section');
-    window.open('https://wa.me/212708295518', '_blank');
+    navigate('/book?channel=whatsapp&source=booking_section');
   };
 
   const handleBooking = () => {
     trackCTAClick('book_discovery_call_booking_section');
-    // For now, this could open a modal with Calendly or redirect to Calendly URL
-    window.open('https://calendly.com', '_blank'); // Replace with actual Calendly link
+    navigate('/book?source=booking_section');
   };
 
   return (
@@ -62,7 +63,7 @@ export default function BookingSection() {
             <div className="mt-8 text-sm text-secondary flex items-center justify-center gap-6">
               <span className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-green-500" />
-                Spots available this week
+                Time confirmed with you on WhatsApp
               </span>
             </div>
           </motion.div>

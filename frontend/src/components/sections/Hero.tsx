@@ -188,7 +188,7 @@ export default function Hero() {
           transition={{ delay: 0.65, duration: 0.8 }}
           className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
         >
-          <Link to="/contact" onClick={() => trackCTAClick('hero_consultation')}>
+          <Link to="/book?source=hero" onClick={() => trackCTAClick('hero_consultation')}>
             <motion.button
               whileHover={{ scale: 1.02, y: -2 }}
               whileTap={{ scale: 0.98 }}
@@ -211,7 +211,7 @@ export default function Hero() {
             </motion.button>
           </Link>
           <motion.a
-            href="https://wa.me/212708295518"
+            href="/book?channel=whatsapp&source=hero"
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => trackWhatsAppClick('hero_button')}
