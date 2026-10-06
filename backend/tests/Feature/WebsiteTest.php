@@ -50,9 +50,25 @@ class WebsiteTest extends TestCase {
   $upload = UploadedFile::fake()->createWithContent('photo.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jS1kAAAAASUVORK5CYII='));
   $result = $this->postJson('/api/media', ['file' => $upload])->assertCreated();
   $name = $result->json('name'); Storage::disk('public')->assertExists('media/'.$name);
-  $this->getJson('/api/media')->assertOk()->assertJsonPath('0.name', $name);
+  $this->getJson('/api/media')->assertOk()->assertJsonPath('0.name', $name)->assertJsonPath('0.type', 'image/png');
   $this->postJson('/api/media', ['file' => UploadedFile::fake()->createWithContent('bad.svg', '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>')])->assertUnprocessable();
   $this->deleteJson('/api/media/'.$name)->assertOk(); Storage::disk('public')->assertMissing('media/'.$name);
+ }
+ public function test_media_listing_returns_strings_when_mime_detection_fails(): void {
+  $this->actingAs(User::factory()->create());
+  $disk = \Mockery::mock(\Illuminate\Filesystem\FilesystemAdapter::class);
+  $paths = ['media/photo.jpg', 'media/clip.mp4', 'media/unknown.dat'];
+  $disk->shouldReceive('files')->once()->with('media')->andReturn($paths);
+  foreach ($paths as $path) {
+   $disk->shouldReceive('mimeType')->once()->with($path)->andReturn(false);
+   $disk->shouldReceive('size')->once()->with($path)->andReturn(20);
+   $disk->shouldReceive('lastModified')->once()->with($path)->andReturn(1700000000);
+  }
+  Storage::shouldReceive('disk')->once()->with('public')->andReturn($disk);
+  $this->getJson('/api/media')->assertOk()
+   ->assertJsonPath('0.type', 'image/jpeg')
+   ->assertJsonPath('1.type', 'video/mp4')
+   ->assertJsonPath('2.type', 'application/octet-stream');
  }
  public function test_unknown_api_endpoint_is_not_the_spa(): void { $this->getJson('/api/missing')->assertNotFound(); }
 }

@@ -24,7 +24,12 @@ export default function MediaAdmin() {
       setLoading(true);
       const data = await request('/media');
       if (data) {
-        const fileList = data;
+        const fileList: MediaFile[] = data.map((file: MediaFile) => ({
+          ...file,
+          type: typeof file.type === 'string' && file.type.length > 0
+            ? file.type
+            : 'application/octet-stream',
+        }));
         // Sort by created_at descending
         fileList.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         setFiles(fileList);
