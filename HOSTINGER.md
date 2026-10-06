@@ -15,7 +15,8 @@ cp .env.example .env
 # Edit .env securely: set APP_URL to the exact HTTPS test domain.
 php artisan key:generate --force
 php artisan migrate --seed --force
-php artisan storage:link
+mkdir -p storage/app/public
+ln -s ../laravel/storage/app/public ../public_html/storage
 php artisan admin:create your-email@example.com
 php artisan config:cache
 ```

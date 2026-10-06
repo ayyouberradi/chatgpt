@@ -1,0 +1,8 @@
+# Robots.txt for ayouberradi.com
+# https://www.robotstxt.org/
+
+User-agent: *
+Allow: /
+
+# Sitemaps
+Sitemap: https://ayouberradi.com/sitemap.xml

@@ -1,0 +1,302 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light Mode (Primary Design) */
+    --background: #FFFFFF;
+    --foreground: #111111;
+    --muted: #F5F5F5;
+    --muted-foreground: #666666;
+    --card: #FAFAFA;
+    --card-foreground: #111111;
+    --border: #EAEAEA;
+    --accent: #000000;
+    --accent-foreground: #FFFFFF;
+    --overlay: rgba(255, 255, 255, 0.88);
+
+    /* Additional semantic colors */
+    --text-primary: #111111;
+    --text-secondary: #666666;
+    --text-muted: #888888;
+    --surface: #FFFFFF;
+    --surface-elevated: #FAFAFA;
+    --surface-muted: #F5F5F5;
+  }
+
+  .dark {
+    /* Dark Mode */
+    --background: #0A0A0A;
+    --foreground: #FFFFFF;
+    --muted: #111111;
+    --muted-foreground: #A1A1A1;
+    --card: #111111;
+    --card-foreground: #FFFFFF;
+    --border: #222222;
+    --accent: #FFFFFF;
+    --accent-foreground: #000000;
+    --overlay: rgba(0, 0, 0, 0.7);
+
+    /* Additional semantic colors */
+    --text-primary: #FFFFFF;
+    --text-secondary: #A1A1A1;
+    --text-muted: #666666;
+    --surface: #0A0A0A;
+    --surface-elevated: #111111;
+    --surface-muted: #151515;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    cursor: auto !important;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    transition: background-color 0.3s ease;
+  }
+
+  html.light {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    cursor: auto;
+  }
+
+  ::selection {
+    background-color: var(--accent);
+    color: var(--accent-foreground);
+  }
+
+  /* Smooth transitions for theme changes */
+  *, *::before, *::after {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-timing-function: ease;
+    transition-duration: 0ms;
+  }
+
+  html.theme-transitioning *,
+  html.theme-transitioning *::before,
+  html.theme-transitioning *::after {
+    transition-duration: 300ms;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-6 py-3 font-medium rounded-full transition-all duration-300 hover:scale-105 active:scale-95;
+    background-color: var(--accent);
+    color: var(--accent-foreground);
+  }
+
+  .btn-primary:hover {
+    filter: brightness(0.9);
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center px-6 py-3 font-medium rounded-full transition-all duration-300 backdrop-blur-sm;
+    border: 1px solid var(--border);
+    color: var(--foreground);
+    background-color: transparent;
+  }
+
+  .btn-secondary:hover {
+    background-color: var(--muted);
+    border-color: var(--foreground);
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center px-4 py-2 font-medium transition-all duration-300;
+    color: var(--text-secondary);
+  }
+
+  .btn-ghost:hover {
+    color: var(--foreground);
+  }
+
+  .card {
+    @apply rounded-2xl backdrop-blur-sm transition-all duration-300;
+    background-color: var(--card);
+    border: 1px solid var(--border);
+  }
+
+  .card:hover {
+    transform: translateY(-4px);
+    border-color: var(--muted-foreground);
+  }
+
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r;
+    background-image: linear-gradient(to right, var(--foreground), var(--text-secondary), var(--foreground));
+  }
+
+  .section-title {
+    @apply text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-4;
+    color: var(--foreground);
+  }
+
+  .section-subtitle {
+    @apply text-lg md:text-xl max-w-2xl;
+    color: var(--text-secondary);
+  }
+
+  .glass {
+    @apply backdrop-blur-xl rounded-xl;
+    background-color: var(--overlay);
+    border: 1px solid var(--border);
+  }
+
+  .heading-xl {
+    @apply text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold tracking-tighter;
+    color: var(--foreground);
+  }
+
+  .heading-lg {
+    @apply text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight;
+    color: var(--foreground);
+  }
+
+  .heading-md {
+    @apply text-3xl md:text-4xl font-bold tracking-tight;
+    color: var(--foreground);
+  }
+
+  .text-body {
+    @apply text-base md:text-lg leading-relaxed;
+    color: var(--text-secondary);
+  }
+
+  .text-primary {
+    color: var(--text-primary);
+  }
+
+  .text-secondary {
+    color: var(--text-secondary);
+  }
+
+  .text-muted {
+    color: var(--text-muted);
+  }
+
+  .bg-surface {
+    background-color: var(--surface);
+  }
+
+  .bg-surface-elevated {
+    background-color: var(--surface-elevated);
+  }
+
+  .bg-surface-muted {
+    background-color: var(--surface-muted);
+  }
+
+  .border-default {
+    border-color: var(--border);
+  }
+}
+
+@layer utilities {
+  .animate-delay-100 {
+    animation-delay: 100ms;
+  }
+
+  .animate-delay-200 {
+    animation-delay: 200ms;
+  }
+
+  .animate-delay-300 {
+    animation-delay: 300ms;
+  }
+
+  .animate-delay-400 {
+    animation-delay: 400ms;
+  }
+
+  .animate-delay-500 {
+    animation-delay: 500ms;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .mask-gradient {
+    mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+  }
+}
+
+/* Custom utilities */
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+
+/* Smooth scroll offset for fixed header */
+html {
+  scroll-padding-top: 80px;
+}
+
+/* Theme toggle animation */
+.theme-toggle-enter {
+  opacity: 0;
+  transform: rotate(-90deg);
+}
+
+.theme-toggle-enter-active {
+  opacity: 1;
+  transform: rotate(0deg);
+  transition: opacity 200ms, transform 200ms;
+}
+
+.theme-toggle-exit {
+  opacity: 1;
+  transform: rotate(0deg);
+}
+
+.theme-toggle-exit-active {
+  opacity: 0;
+  transform: rotate(90deg);
+  transition: opacity 200ms, transform 200ms;
+}
+
+/* Clip decorative glows and scrolling marquees at the viewport edge. */
+html, body { overflow-x: clip; }

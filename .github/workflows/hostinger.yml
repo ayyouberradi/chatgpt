@@ -1,0 +1,74 @@
+name: Deploy to Hostinger
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: hostinger-deployment
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SSH_HOST: 92.113.18.197
+      SSH_PORT: '65002'
+      SSH_USER: u808335549
+      DEPLOY_ROOT: /home/u808335549/domains/salmon-turtle-767162.hostingersite.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, dom, xml, pdo_sqlite, sqlite3, curl, zip, fileinfo
+          tools: composer:v2
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build and validate frontend
+        run: |
+          npm ci --prefix frontend --no-audit --no-fund
+          npm run typecheck --prefix frontend
+          node scripts/build.mjs
+      - name: Validate backend
+        working-directory: backend
+        run: |
+          composer install --no-interaction --prefer-dist
+          cp .env.example .env
+          php artisan key:generate --force
+          php artisan test
+      - name: Package production dependencies
+        run: |
+          python3 scripts/package-hostinger.py
+          mkdir release
+          unzip -q ../chatgpt-hostinger.zip -d release
+      - name: Configure authenticated SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.HOSTINGER_KNOWN_HOSTS }}
+        run: |
+          test -n "$DEPLOY_SSH_KEY" || { echo 'Set HOSTINGER_SSH_KEY in repository secrets.'; exit 1; }
+          test -n "$DEPLOY_KNOWN_HOSTS" || { echo 'Set HOSTINGER_KNOWN_HOSTS in repository secrets.'; exit 1; }
+          mkdir -p "$RUNNER_TEMP/hostinger-ssh"
+          chmod 700 "$RUNNER_TEMP/hostinger-ssh"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$RUNNER_TEMP/hostinger-ssh/key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$RUNNER_TEMP/hostinger-ssh/known_hosts"
+          chmod 600 "$RUNNER_TEMP/hostinger-ssh/key" "$RUNNER_TEMP/hostinger-ssh/known_hosts"
+      - name: Upload and apply update
+        run: |
+          remote_release="$DEPLOY_ROOT/.github-release-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          ssh_options=(-i "$RUNNER_TEMP/hostinger-ssh/key" -p "$SSH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$RUNNER_TEMP/hostinger-ssh/known_hosts")
+          ssh "${ssh_options[@]}" "$SSH_USER@$SSH_HOST" "mkdir -p '$remote_release'"
+          rsync -az -e "ssh -i $RUNNER_TEMP/hostinger-ssh/key -p $SSH_PORT -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$RUNNER_TEMP/hostinger-ssh/known_hosts" release/ "$SSH_USER@$SSH_HOST:$remote_release/"
+          ssh "${ssh_options[@]}" "$SSH_USER@$SSH_HOST" "bash -s -- '$remote_release'" < scripts/hostinger-update.sh
+      - name: Check live responses
+        run: |
+          curl --fail --silent --show-error --retry 3 https://salmon-turtle-767162.hostingersite.com/up > /dev/null
+          curl --fail --silent --show-error --retry 3 https://salmon-turtle-767162.hostingersite.com/api/settings -o "$RUNNER_TEMP/live-settings.json"
+          python3 -c 'import json,os; d=json.load(open(os.environ["RUNNER_TEMP"]+"/live-settings.json")); assert isinstance(d["admin_data"]["services"],list); assert "seo_data" in d'
+      - name: Remove runner SSH material
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/hostinger-ssh"
