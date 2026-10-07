@@ -65,7 +65,7 @@ abstract class DocumentResource extends Resource
                         $set('language', $c->language);
                     }
                 }),
-                TextInput::make('title')->required()->maxLength(255),
+                TextInput::make('title')->label('Project / document subject')->helperText('The PDF title and filename use the client name, document type and issue date (creation date for drafts).')->required()->maxLength(255),
                 Select::make('currency')->options(['MAD' => 'MAD', 'EUR' => 'EUR', 'USD' => 'USD'])->default(fn () => BusinessSetting::current()->currency)->required(),
                 Select::make('language')->options(['fr' => 'Français', 'en' => 'English'])->default(fn () => BusinessSetting::current()->language)->required(),
                 Select::make('billing_period')->options(['one_time' => 'One-time', 'monthly' => 'Monthly', 'yearly' => 'Yearly'])->default('one_time')->required()->helperText('Use separate documents for one-time and recurring charges.'),

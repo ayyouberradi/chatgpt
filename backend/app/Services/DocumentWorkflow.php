@@ -102,7 +102,7 @@ final class DocumentWorkflow
             $document->fill($totals + [
                 'number' => $prefix.'-'.$year.'-'.str_pad((string) $sequence->next_value, 4, '0', STR_PAD_LEFT),
                 'status' => 'issued', 'issued_at' => now(),
-                'issuer_snapshot' => $settings->only(['legal_name', 'address', 'email', 'phone', 'business_type', 'tax_mode', 'tax_identifier', 'registration_number', 'payment_instructions']),
+                'issuer_snapshot' => $settings->only(['legal_name', 'address', 'email', 'phone', 'business_type', 'tax_mode', 'tax_identifier', 'registration_number', 'payment_instructions', 'pdf_footer']),
                 'client_snapshot' => $document->client->only(['name', 'company', 'email', 'phone', 'address', 'tax_identifier']),
             ])->save();
             AuditEvent::record('document.issued', $document, ['number' => $document->number, 'type' => $document->type, 'total_amount' => $document->total_amount, 'currency' => $document->currency]);
@@ -213,7 +213,7 @@ final class DocumentWorkflow
                 $this->fail('Explain why this payment is being voided.');
             }
             $payment->update(['voided_at' => now(), 'void_reason' => $reason]);
-            AuditEvent::record('payment.voided',$payment,['document_id' => $payment->business_document_id]);
+            AuditEvent::record('payment.voided', $payment, ['document_id' => $payment->business_document_id]);
         });
     }
 }

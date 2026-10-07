@@ -11,6 +11,7 @@ use App\Models\Lead;
 use App\Models\User;
 use App\Services\DocumentWorkflow;
 use App\Support\Money;
+use Carbon\Carbon;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
@@ -133,6 +134,36 @@ class BusinessTest extends TestCase
         $invoice = $w->duplicate($q, 'invoice');
         $invoice->update(['currency' => 'EUR']);
         $this->rejected(fn () => $w->issue($invoice));
+    }
+
+    public function test_pdf_title_filename_and_footer_use_frozen_client_and_issue_date(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-07 12:00:00', 'Africa/Casablanca'));
+        BusinessSetting::current()->update(['pdf_footer' => 'Legal footer at issue time']);
+        $draft = $this->draft();
+        $draft->client->update(['name' => 'Contact', 'company' => 'Emerald Riad']);
+        $this->assertSame('Emerald Riad - Devis - 07-10-2026', $draft->pdfTitle());
+        $issued = app(DocumentWorkflow::class)->issue($draft);
+        $this->assertSame('Legal footer at issue time', $issued->issuer_snapshot['pdf_footer']);
+        $issued->client->update(['company' => 'Changed client name']);
+        BusinessSetting::current()->update(['pdf_footer' => 'Changed legal footer']);
+        $this->travelTo(Carbon::parse('2026-10-08 12:00:00', 'Africa/Casablanca'));
+        $this->assertSame('Emerald Riad - Devis - 07-10-2026.pdf', $issued->fresh()->pdfFilename());
+        $response = $this->get('/manage/documents/'.$issued->id.'/pdf')->assertOk();
+        $this->assertStringContainsString('Emerald Riad - Devis - 07-10-2026.pdf', $response->headers->get('Content-Disposition'));
+        $this->travelBack();
+    }
+
+    public function test_pdf_filenames_remove_path_and_header_controls_and_localize_types(): void
+    {
+        $draft = $this->draft('invoice', ['language' => 'en']);
+        $draft->client->update(['company' => "Café / Studio\\Team\r\n"]);
+        $name = $draft->pdfFilename();
+        $this->assertStringContainsString('Café Studio Team - Invoice - ', $name);
+        $this->assertStringNotContainsString('/', $name);
+        $this->assertStringNotContainsString('\\', $name);
+        $this->assertStringNotContainsString("\n", $name);
+        $this->get('/manage/documents/'.$draft->id.'/pdf')->assertOk();
     }
 
     public function test_draft_and_issued_documents_download_as_private_pdfs(): void

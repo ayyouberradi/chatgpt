@@ -117,6 +117,26 @@ class BusinessDocument extends Model
         return max(0, $this->total_amount - $this->paidAmount() - $this->creditAmount());
     }
 
+    public function pdfTitle(): string
+    {
+        $client = $this->issued_at ? ($this->client_snapshot ?? []) : ($this->client?->toArray() ?? []);
+        $name = trim($client['company'] ?? '') ?: ($client['name'] ?? 'Client');
+        $labels = $this->language === 'fr'
+            ? ['quote' => 'Devis', 'invoice' => 'Facture', 'contract' => 'Contrat', 'credit_note' => 'Avoir']
+            : ['quote' => 'Quote', 'invoice' => 'Invoice', 'contract' => 'Contract', 'credit_note' => 'Credit note'];
+        $date = ($this->issued_at ?? $this->created_at)->copy()->setTimezone('Africa/Casablanca')->format('d-m-Y');
+
+        return $name.' - '.$labels[$this->type].' - '.$date;
+    }
+
+    public function pdfFilename(): string
+    {
+        // Keep readable Unicode client names while removing path and header controls.
+        $name = preg_replace('/[\\\\\/\x00-\x1F\x7F]/u', ' ', $this->pdfTitle());
+
+        return trim(preg_replace('/\s+/u', ' ', $name), ' .').'.pdf';
+    }
+
     public function getDisplayNumberAttribute(): string
     {
         return $this->number ?? 'Draft #'.$this->id;

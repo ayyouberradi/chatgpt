@@ -15,6 +15,8 @@ class BusinessPdfController extends Controller
         $client = $document->issued_at ? $document->client_snapshot : $document->client->toArray();
         $totals = $document->issued_at ? $document->only(['subtotal_amount', 'tax_amount', 'total_amount']) : $document->totals();
 
-        return Pdf::loadView('business.document', compact('document', 'issuer', 'client', 'totals'))->setPaper('a4')->setOption('isRemoteEnabled', false)->download(($document->number ?? 'draft-'.$document->id).'.pdf')->header('Cache-Control', 'private, no-store');
+        $pdfTitle = $document->pdfTitle();
+
+        return Pdf::loadView('business.document', compact('document', 'issuer', 'client', 'totals', 'pdfTitle'))->setPaper('a4')->setOption('isRemoteEnabled', false)->download($document->pdfFilename())->header('Cache-Control', 'private, no-store');
     }
 }

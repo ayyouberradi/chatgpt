@@ -60,3 +60,11 @@ The contact questionnaire uses the same save-first workflow, including its busin
 In `/manage/leads` (**Leads & bookings**), review the request, requested time and contact permission, add internal notes, set a follow-up date, or convert the lead into a client. **Prepare WhatsApp** creates a draft with the lead reference; open it in WhatsApp and send it. In **WhatsApp follow-ups**, record a message as sent only after sending it, and choose the next follow-up date. Drafts and manually recorded sends are distinct, and sent history is preserved.
 
 WhatsApp opens with a prepared message; this release does not send messages through the WhatsApp Business API or automatically verify delivery. No Business Platform account is required. Contact opt-in is optional for the project questionnaire; booking requests require permission to discuss the request on WhatsApp. If someone asks to stop messages, disable their WhatsApp permission in the lead. Existing leads do not acquire permission automatically. Outgoing follow-up actions require a valid phone and permission.
+
+## Quote and invoice PDF style
+
+Quotes and invoices use the supplied reference's monochrome layout: client identity, date and document number, description/price columns with service scope bullets, a dark total bar, payment details and a legal footer. VAT, discounts, quantities, recurring billing and paid balances remain visible when applicable. Long lists can continue across pages.
+
+PDF headings, metadata titles and filenames use `Client name - Devis/Facture - DD-MM-YYYY` for French documents, or `Client name - Quote/Invoice - DD-MM-YYYY` for English. A company name takes priority over the contact name. Issued documents use the saved client identity and issue date; drafts use their creation date. Dates use Africa/Casablanca. The project subject remains editable separately while drafting.
+
+In Business settings, fill **Payment instructions** with the account holder and bank details and optionally fill **Quote / invoice legal footer** with the legal identity, CNIE, address, ICE, IF, professional tax, phone and email. A blank custom footer uses the existing business identity fields. The custom footer is captured when a document is issued; changing business settings later does not change issued document identities. The reference's bank accounts and stamp are not automatically imported.
