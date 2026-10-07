@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Resources\Pages\ManageInvoices;
 use App\Filament\Resources\Pages\ManageQuotes;
 use App\Models\BusinessClient;
 use App\Models\BusinessDocument;
@@ -31,6 +32,12 @@ class BusinessTest extends TestCase
 
     private function draft(string $type = 'quote', array $changes = []): BusinessDocument
     {
+        if ($type === 'invoice') {
+            $workflow = app(DocumentWorkflow::class);
+            $quote = $workflow->accept($workflow->issue($this->draft('quote', $changes)));
+
+            return $workflow->duplicate($quote, 'invoice');
+        }
         $client = BusinessClient::firstOrCreate(['email' => 'client@example.test'], ['name' => 'Client', 'address' => 'Casablanca']);
         $document = BusinessDocument::create($changes + ['type' => $type, 'business_client_id' => $client->id, 'title' => 'Website', 'due_on' => now()->addDays(30), 'currency' => 'MAD', 'language' => 'fr', 'billing_period' => 'one_time', 'tax_percent' => '20.00']);
         $document->items()->create(['description' => 'Website', 'quantity' => '1.000', 'unit_price' => '1000.00', 'billing_period' => 'one_time', 'scope' => 'Five pages']);
@@ -46,6 +53,58 @@ class BusinessTest extends TestCase
         } catch (ValidationException $e) {
             $this->assertNotEmpty($e->errors());
         }
+    }
+
+    public function test_quote_invoice_portions_copy_services_and_prevent_overbilling(): void
+    {
+        $w = app(DocumentWorkflow::class);
+        $quote = $w->accept($w->issue($this->draft()));
+        $deposit = $w->issue($w->duplicate($quote, 'invoice', 50));
+        $this->assertSame(60000, $deposit->total_amount);
+        $this->assertSame('Website', $deposit->items->first()->description);
+        $this->assertSame(50000, $deposit->items->first()->lineAmount());
+        $this->assertSame(0, $deposit->paidAmount());
+        $this->rejected(fn () => $w->issue($w->duplicate($quote, 'invoice', 100)));
+        $second = $w->issue($w->duplicate($quote, 'invoice', 50));
+        $this->assertSame($quote->total_amount, $deposit->total_amount + $second->total_amount);
+        $this->rejected(fn () => $w->duplicate($quote, 'invoice', 25));
+        $tampered = $w->duplicate($quote, 'invoice', 50);
+        $tampered->items()->first()->update(['description' => 'Additional service']);
+        $this->rejected(fn () => $w->issue($tampered));
+    }
+
+    public function test_invoice_portion_rounding_and_quote_required(): void
+    {
+        $w = app(DocumentWorkflow::class);
+        $quote = $this->draft();
+        $quote->items()->first()->update(['quantity' => '1.125', 'unit_price' => '12.34']);
+        $quote->update(['discount' => '0.38']);
+        $quote = $w->accept($w->issue($quote));
+        $invoice = $w->issue($w->duplicate($quote, 'invoice', 50));
+        $this->assertSame(810, $invoice->total_amount);
+        $this->assertSame(135, $invoice->tax_amount);
+        $this->assertSame(694, $invoice->subtotal_amount);
+        $this->assertSame(19, $invoice->discount_amount);
+        $this->assertSame(810, $invoice->balanceAmount());
+        $standalone = $this->draft();
+        $standalone->update(['type' => 'invoice']);
+        $this->rejected(fn () => $w->issue($standalone));
+    }
+
+    public function test_admin_creates_invoice_by_selecting_quote_and_payment_type(): void
+    {
+        Filament::setCurrentPanel(Filament::getPanel('manage'));
+        Filament::bootCurrentPanel();
+        $w = app(DocumentWorkflow::class);
+        $quote = $w->accept($w->issue($this->draft()));
+        Livewire::test(ManageInvoices::class)->callAction('create', ['quote_id' => $quote->id, 'payment_percent' => 50])->assertHasNoActionErrors();
+        $invoice = BusinessDocument::where('type', 'invoice')->firstOrFail();
+        $this->assertSame($quote->id, $invoice->source_document_id);
+        $this->assertSame(50, $invoice->payment_percent);
+        $this->assertSame(60000, $invoice->totals()['total_amount']);
+        Livewire::test(ManageInvoices::class)->callTableAction('edit', $invoice, ['due_on' => now()->addDays(14)->toDateString(), 'notes' => 'Deposit requested'])->assertHasNoTableActionErrors();
+        $this->assertSame('Deposit requested', $invoice->fresh()->notes);
+        $this->assertSame(1, $invoice->items()->count());
     }
 
     public function test_exact_money_quantity_discount_and_tax(): void
@@ -85,8 +144,8 @@ class BusinessTest extends TestCase
         $this->travelTo(Carbon::parse('2025-09-08 12:00:00', 'Africa/Casablanca'));
         $this->assertSame('8092025/1', $w->issue($this->draft('invoice'))->number);
         $this->assertSame('8092025/2', $w->issue($this->draft('invoice'))->number);
-        $this->assertSame('8092025/1', $w->issue($this->draft('quote'))->number);
-        $this->assertSame('8092025/2', $w->issue($this->draft('quote'))->number);
+        $this->assertSame('8092025/3', $w->issue($this->draft('quote'))->number);
+        $this->assertSame('8092025/4', $w->issue($this->draft('quote'))->number);
         // 23:30 UTC is already the next day in Casablanca.
         $this->travelTo(Carbon::parse('2025-09-08 23:30:00', 'UTC'));
         $this->assertSame('9092025/1', $w->issue($this->draft('invoice'))->number);
@@ -289,7 +348,7 @@ class BusinessTest extends TestCase
         $this->assertNotNull($q->fresh()->issued_at);
         Livewire::test(ManageQuotes::class)->callTableAction('accept', $q)->assertHasNoTableActionErrors();
         $this->assertSame('accepted', $q->fresh()->status);
-        Livewire::test(ManageQuotes::class)->callTableAction('invoice', $q)->assertHasNoTableActionErrors();
+        Livewire::test(ManageQuotes::class)->callTableAction('invoice', $q, ['payment_percent' => 100])->assertHasNoTableActionErrors();
         $this->assertDatabaseHas('business_documents', ['type' => 'invoice', 'source_document_id' => $q->id, 'status' => 'draft']);
         Livewire::test(ManageQuotes::class)->mountTableAction('view', $q)->assertHasNoTableActionErrors();
     }

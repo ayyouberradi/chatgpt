@@ -57,6 +57,15 @@ abstract class DocumentResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
+        if (static::documentType() === 'invoice') {
+            return $schema->components([
+                TextInput::make('source.number')->label('Linked quote')->disabled()->dehydrated(false),
+                Select::make('payment_percent')->label('Payment type')->options([100 => 'Full payment (100%)', 50 => 'Deposit (50%)'])->disabled()->dehydrated(false),
+                DatePicker::make('due_on')->label('Due date')->required(),
+                Textarea::make('notes')->label('Internal notes — not printed')->maxLength(2000),
+            ])->columns(2);
+        }
+
         return $schema->components([
             Section::make('Document')->schema([
                 Select::make('business_client_id')->label('Client')->relationship('client', 'name')->searchable()->preload()->required()->live()->afterStateUpdated(function ($state, Set $set) {
@@ -138,7 +147,7 @@ abstract class DocumentResource extends Resource
                 Action::make('issue')->label('Issue')->color('success')->requiresConfirmation()->modalDescription('This assigns a permanent number and locks the document. Check the preview PDF and totals first.')->visible(fn ($record) => ! $record->issued_at)->action(fn ($record) => static::perform(fn () => app(DocumentWorkflow::class)->issue($record))),
                 Action::make('revision')->label('New quote revision')->visible(fn ($record) => $record->type === 'quote')->requiresConfirmation()->action(fn ($record) => static::perform(fn () => app(DocumentWorkflow::class)->duplicate($record, 'quote'))),
                 Action::make('contract')->label('Create contract')->visible(fn ($record) => $record->type === 'quote' && $record->status === 'accepted')->action(fn ($record) => static::perform(fn () => app(DocumentWorkflow::class)->duplicate($record, 'contract'))),
-                Action::make('invoice')->label('Create invoice')->visible(fn ($record) => $record->type === 'quote' && $record->status === 'accepted')->action(fn ($record) => static::perform(fn () => app(DocumentWorkflow::class)->duplicate($record, 'invoice'))),
+                Action::make('invoice')->label('Create invoice')->visible(fn ($record) => $record->type === 'quote' && $record->status === 'accepted')->schema([Select::make('payment_percent')->label('Payment type')->options([100 => 'Full payment (100%)', 50 => 'Deposit (50%)'])->default(100)->required()])->action(fn ($record, array $data) => static::perform(fn () => app(DocumentWorkflow::class)->duplicate($record, 'invoice', (int) $data['payment_percent']))),
                 Action::make('signed')->label('Record signed contract')->requiresConfirmation()->modalDescription('Use only after receiving the signed agreement. This does not provide electronic signature.')->visible(fn ($record) => $record->type === 'contract' && $record->status === 'issued')->action(fn ($record) => static::perform(fn () => app(DocumentWorkflow::class)->markSigned($record))),
                 Action::make('payment')->label('Record payment')->visible(fn ($record) => $record->type === 'invoice' && $record->issued_at && $record->balanceAmount() > 0)->schema([
                     TextInput::make('amount')->required()->regex('/^\d{1,9}([.,]\d{1,2})?$/')->default(fn ($record) => Money::decimal($record->balanceAmount())),

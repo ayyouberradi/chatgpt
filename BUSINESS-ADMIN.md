@@ -72,3 +72,5 @@ In Business settings, fill **Payment instructions** with the account holder and 
 The **Preview PDF** action opens the document in a new tab using the browser PDF viewer. Use the viewer’s download button to save it. PDF responses remain private and are not cached.
 
 Quote rows provide **Mark accepted** and **Mark rejected** directly beside the preview, with **Issue** in the **Workflow** menu. Issue first to produce a numbered client quote without the draft banner. Recording a decision on a draft issues it and records the decision atomically, with the same validation and content locking as normal issuance.
+
+Invoices are created from an accepted quote, either through its **Create invoice** workflow action or **Invoices → Create invoice from quote**. Choose **Full payment (100%)** or **Deposit (50%)**. Client, services, deliverables, prices, currency, tax and terms are copied from the quote; invoice forms allow the due date and internal notes to be edited. The PDF identifies the linked quote and payment portion. Payment type describes the amount invoiced, not money received: record actual payments separately. Existing issued invoices remain unchanged.

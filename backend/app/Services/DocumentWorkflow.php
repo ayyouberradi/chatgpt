@@ -55,6 +55,9 @@ final class DocumentWorkflow
             if ($document->type === 'invoice' && ! $document->due_on) {
                 $this->fail('Set an invoice due date.');
             }
+            if ($document->type === 'invoice' && ! $document->source_document_id) {
+                $this->fail('Select an accepted quote to create the invoice.');
+            }
             if ($document->source_document_id) {
                 $source = BusinessDocument::lockForUpdate()->findOrFail($document->source_document_id);
                 if ($source->business_client_id !== $document->business_client_id || $source->currency !== $document->currency || $source->billing_period !== $document->billing_period) {
@@ -67,6 +70,7 @@ final class DocumentWorkflow
                     if ($source->type !== 'quote' || $source->status !== 'accepted') {
                         $this->fail('Linked invoices must reference an accepted quote.');
                     }
+                    $this->validateInvoiceCopy($document, $source);
                     $already = (int) BusinessDocument::where('source_document_id', $source->id)->where('type', 'invoice')->whereNotNull('issued_at')->sum('total_amount');
                     if ($already + $totals['total_amount'] > $source->total_amount) {
                         $this->fail('Issued invoices would exceed the accepted quote. Use an approved revised quote for additional work.');
@@ -182,9 +186,10 @@ final class DocumentWorkflow
         });
     }
 
-    public function duplicate(BusinessDocument $source, string $type): BusinessDocument
+    public function duplicate(BusinessDocument $source, string $type, int $paymentPercent = 100): BusinessDocument
     {
-        return DB::transaction(function () use ($source, $type) {
+        return DB::transaction(function () use ($source, $type, $paymentPercent) {
+            $source = BusinessDocument::lockForUpdate()->findOrFail($source->id);
             if (! in_array($type, ['quote', 'invoice', 'contract', 'credit_note'])) {
                 $this->fail('Unknown document type.');
             }
@@ -194,18 +199,58 @@ final class DocumentWorkflow
             if ($type === 'credit_note' && ($source->type !== 'invoice' || ! $source->issued_at)) {
                 $this->fail('Select an issued invoice.');
             }
+            if ($type === 'invoice' && ! in_array($paymentPercent, [50, 100], true)) {
+                $this->fail('Choose full payment (100%) or deposit (50%).');
+            }
+            $portion = $type === 'invoice' ? $paymentPercent : 100;
+            $discount = Money::rounded($source->discount_amount * $portion, 100);
+            $targetSubtotal = Money::rounded($source->total_amount * $portion, 100) - Money::rounded($source->tax_amount * $portion, 100) + $discount;
             $draft = BusinessDocument::create([
                 'type' => $type, 'business_client_id' => $source->business_client_id, 'source_document_id' => $type === 'quote' ? null : $source->id, 'title' => $source->title,
                 'currency' => $source->currency, 'language' => $source->language, 'billing_period' => $source->billing_period, 'due_on' => now()->addDays(30)->toDateString(),
-                'discount_amount' => $source->discount_amount, 'tax_basis_points' => $source->tax_basis_points, 'terms' => $type === 'contract' ? null : $source->terms, 'created_by' => auth()->id(),
+                'payment_percent' => $type === 'invoice' ? $portion : null,
+                'discount_amount' => $discount, 'tax_basis_points' => $source->tax_basis_points, 'terms' => $type === 'contract' ? null : $source->terms, 'created_by' => auth()->id(),
             ]);
+            $cumulative = 0;
+            $allocated = 0;
+            $largest = null;
             foreach ($source->items as $item) {
-                $draft->items()->create($item->only(['catalogue_service_id', 'description', 'scope', 'billing_period', 'quantity_milli', 'unit_amount', 'position']));
+                $attributes = $item->only(['catalogue_service_id', 'description', 'scope', 'billing_period', 'quantity_milli', 'unit_amount', 'position', 'billed_amount']);
+                if ($type === 'invoice') {
+                    $cumulative += $item->lineAmount();
+                    $next = Money::rounded($cumulative * $portion, 100);
+                    $attributes['billed_amount'] = $next - $allocated;
+                    $allocated = $next;
+                }
+                $copied = $draft->items()->create($attributes);
+                if ($type === 'invoice' && ($largest === null || $copied->billed_amount > $largest->billed_amount)) {
+                    $largest = $copied;
+                }
+            }
+            if ($type === 'invoice' && $largest && $allocated !== $targetSubtotal) {
+                $largest->update(['billed_amount' => $largest->billed_amount + $targetSubtotal - $allocated]);
             }
             AuditEvent::record('document.draft_created', $draft, ['source_id' => $source->id]);
 
             return $draft;
         });
+    }
+
+    private function validateInvoiceCopy(BusinessDocument $invoice, BusinessDocument $quote): void
+    {
+        if (! in_array((int) $invoice->payment_percent, [50, 100], true)) {
+            $this->fail('Choose full payment (100%) or deposit (50%).');
+        }
+        if ($invoice->tax_basis_points !== $quote->tax_basis_points || $invoice->discount_amount !== Money::rounded($quote->discount_amount * $invoice->payment_percent, 100)) {
+            $this->fail('Invoice prices and tax must come from the accepted quote.');
+        }
+        $fields = ['catalogue_service_id', 'description', 'scope', 'billing_period', 'quantity_milli', 'unit_amount', 'position'];
+        if ($invoice->items->map->only($fields)->values()->all() !== $quote->items->map->only($fields)->values()->all()) {
+            $this->fail('Invoice services must match the accepted quote. Create a revised quote to change services.');
+        }
+        if ($invoice->totals()['total_amount'] !== Money::rounded($quote->total_amount * $invoice->payment_percent, 100)) {
+            $this->fail('Invoice amount must match the selected quote payment portion.');
+        }
     }
 
     public function recordPayment(BusinessDocument $original, array $data): Payment

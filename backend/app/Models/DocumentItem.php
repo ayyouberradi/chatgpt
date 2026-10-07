@@ -20,6 +20,11 @@ class DocumentItem extends Model
             }
         };
         static::saving($guard);
+        static::updating(function (self $item) {
+            if ($item->isDirty(['quantity_milli', 'unit_amount']) && $item->document->type !== 'invoice') {
+                $item->billed_amount = null;
+            }
+        });
         static::deleting($guard);
     }
 
@@ -59,6 +64,6 @@ class DocumentItem extends Model
 
     public function lineAmount(): int
     {
-        return Money::rounded($this->quantity_milli * $this->unit_amount, 1000);
+        return $this->billed_amount !== null ? (int) $this->billed_amount : Money::rounded($this->quantity_milli * $this->unit_amount, 1000);
     }
 }

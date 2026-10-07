@@ -14,13 +14,13 @@ class BusinessDocument extends Model
 
     protected function casts(): array
     {
-        return ['issuer_snapshot' => 'array', 'client_snapshot' => 'array', 'issued_at' => 'datetime', 'accepted_at' => 'datetime', 'signed_at' => 'datetime', 'due_on' => 'date', 'discount_amount' => 'integer', 'tax_basis_points' => 'integer', 'subtotal_amount' => 'integer', 'tax_amount' => 'integer', 'total_amount' => 'integer'];
+        return ['payment_percent' => 'integer', 'issuer_snapshot' => 'array', 'client_snapshot' => 'array', 'issued_at' => 'datetime', 'accepted_at' => 'datetime', 'signed_at' => 'datetime', 'due_on' => 'date', 'discount_amount' => 'integer', 'tax_basis_points' => 'integer', 'subtotal_amount' => 'integer', 'tax_amount' => 'integer', 'total_amount' => 'integer'];
     }
 
     protected static function booted(): void
     {
         static::updating(function (self $document) {
-            if ($document->getOriginal('issued_at') && $document->isDirty(['type', 'number', 'business_client_id', 'source_document_id', 'contract_template_id', 'title', 'currency', 'language', 'billing_period', 'due_on', 'discount_amount', 'tax_basis_points', 'subtotal_amount', 'tax_amount', 'total_amount', 'terms', 'notes', 'issuer_snapshot', 'client_snapshot', 'issued_at'])) {
+            if ($document->getOriginal('issued_at') && $document->isDirty(['type', 'payment_percent', 'number', 'business_client_id', 'source_document_id', 'contract_template_id', 'title', 'currency', 'language', 'billing_period', 'due_on', 'discount_amount', 'tax_basis_points', 'subtotal_amount', 'tax_amount', 'total_amount', 'terms', 'notes', 'issuer_snapshot', 'client_snapshot', 'issued_at'])) {
                 throw ValidationException::withMessages(['document' => 'Issued documents cannot be edited. Create a new draft revision.']);
             }
         });
@@ -92,7 +92,9 @@ class BusinessDocument extends Model
         if ($this->tax_basis_points > 10000) {
             throw ValidationException::withMessages(['tax_percent' => 'Tax must be between 0 and 100%.']);
         }
-        $tax = Money::rounded(($subtotal - $this->discount_amount) * $this->tax_basis_points, 10000);
+        $tax = $this->type === 'invoice' && $this->payment_percent && $this->source
+            ? Money::rounded($this->source->tax_amount * $this->payment_percent, 100)
+            : Money::rounded(($subtotal - $this->discount_amount) * $this->tax_basis_points, 10000);
 
         $total = $subtotal - $this->discount_amount + $tax;
         if ($total > 99999999999) {

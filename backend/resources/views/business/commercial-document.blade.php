@@ -77,12 +77,13 @@ table.lines { width: 100%; border-collapse: collapse; }
 </div>
 <div class="secondary">@if($document->due_on){{ $document->type === 'quote' ? ($fr ? 'Valable jusqu’au' : 'Valid until') : ($fr ? 'Échéance' : 'Due date') }} {{ $document->due_on->format('d/m/Y') }}@endif</div>
 @if($document->source)<div class="secondary">{{ $fr ? 'Référence' : 'Reference' }} : {{ $document->source->number }}</div>@endif
+@if($document->type === 'invoice' && $document->payment_percent)<div class="secondary">{{ $document->payment_percent === 50 ? ($fr ? 'Acompte — 50% du devis' : 'Deposit — 50% of quote') : ($fr ? 'Paiement intégral — 100% du devis' : 'Full payment — 100% of quote') }}</div>@endif
 @if($document->billing_period !== 'one_time')<div class="secondary">{{ $fr ? 'Périodicité' : 'Billing period' }} : {{ $document->billing_period === 'monthly' ? ($fr ? 'Mensuelle' : 'Monthly') : ($fr ? 'Annuelle' : 'Yearly') }}</div>@endif
 <div class="rule"></div>
 <div class="line-area"><table class="lines"><thead><tr><th>DESCRIPTION</th><th class="price">{{ $fr ? 'PRIX' : 'PRICE' }}</th></tr></thead><tbody>
 @foreach($document->items as $item)
 @php $scope = array_values(array_filter(array_map('trim', preg_split('/\R/u', $item->scope ?? '')), fn($line) => $line !== '')); @endphp
-<tr class="item-heading"><td>{{ $item->description }}@if($item->quantity_milli !== 1000)<div class="secondary">{{ $fr ? 'Quantité' : 'Quantity' }} : {{ $item->quantity }} × {{ $money($item->unit_amount) }}</div>@endif</td><td class="price">@if(!$scope){{ $money($item->lineAmount()) }}@endif</td></tr>
+<tr class="item-heading"><td>{{ $item->description }}@if($item->quantity_milli !== 1000 && !$document->payment_percent)<div class="secondary">{{ $fr ? 'Quantité' : 'Quantity' }} : {{ $item->quantity }} × {{ $money($item->unit_amount) }}</div>@endif</td><td class="price">@if(!$scope){{ $money($item->lineAmount()) }}@endif</td></tr>
 @foreach($scope as $line)<tr><td class="scope">• {{ preg_replace('/^[•*\-]\s*/u', '', $line) }}</td><td class="price">@if($loop->last){{ $money($item->lineAmount()) }}@endif</td></tr>@endforeach
 @endforeach
 </tbody></table></div>
