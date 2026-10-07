@@ -66,8 +66,8 @@ class BusinessTest extends TestCase
         $w = app(DocumentWorkflow::class);
         $d = $w->issue($this->draft());
         $e = $w->issue($this->draft());
-        $this->assertStringEndsWith('-0001', $d->number);
-        $this->assertStringEndsWith('-0002', $e->number);
+        $this->assertStringEndsWith('/1', $d->number);
+        $this->assertStringEndsWith('/2', $e->number);
         $this->assertSame(120000, $d->total_amount);
         $d->client->update(['name' => 'Changed client']);
         BusinessSetting::current()->update(['legal_name' => 'Changed studio']);
@@ -77,6 +77,33 @@ class BusinessTest extends TestCase
         $this->rejected(fn () => $d->items()->first()->update(['unit_price' => '1.00']));
         $this->rejected(fn () => $d->delete());
         $this->get(route('business.pdf', $d))->assertOk()->assertHeader('Content-Type', 'application/pdf')->assertHeader('Cache-Control', 'no-store, private');
+    }
+
+    public function test_quote_and_invoice_daily_numbers_reset_by_type_and_casablanca_date(): void
+    {
+        $w = app(DocumentWorkflow::class);
+        $this->travelTo(Carbon::parse('2025-09-08 12:00:00', 'Africa/Casablanca'));
+        $this->assertSame('8092025/1', $w->issue($this->draft('invoice'))->number);
+        $this->assertSame('8092025/2', $w->issue($this->draft('invoice'))->number);
+        $this->assertSame('8092025/1', $w->issue($this->draft('quote'))->number);
+        $this->assertSame('8092025/2', $w->issue($this->draft('quote'))->number);
+        // 23:30 UTC is already the next day in Casablanca.
+        $this->travelTo(Carbon::parse('2025-09-08 23:30:00', 'UTC'));
+        $this->assertSame('9092025/1', $w->issue($this->draft('invoice'))->number);
+        $this->travelBack();
+    }
+
+    public function test_quote_pdf_hides_contact_subject_and_draft_numbers_but_keeps_validity(): void
+    {
+        $draft = $this->draft('quote', ['title' => 'Website title', 'due_on' => '2026-10-11']);
+        $draft->client->update(['name' => 'Mona', 'company' => 'BE CUTE SPA']);
+        $html = view('business.document', ['document' => $draft->fresh()->load('client', 'items', 'source'), 'issuer' => BusinessSetting::current()->toArray(), 'client' => $draft->client->fresh()->toArray(), 'totals' => $draft->totals(), 'pdfTitle' => $draft->pdfTitle()])->render();
+        $this->assertStringContainsString('<h1>DEVIS</h1>', $html);
+        $this->assertStringContainsString('BE CUTE SPA', $html);
+        $this->assertStringContainsString('Valable jusqu’au 11/10/2026', $html);
+        $this->assertStringNotContainsString('Mona', $html);
+        $this->assertStringNotContainsString('Website title', $html);
+        $this->assertStringNotContainsString('Draft #', $html);
     }
 
     public function test_quote_acceptance_contract_invoice_and_payment_workflow(): void

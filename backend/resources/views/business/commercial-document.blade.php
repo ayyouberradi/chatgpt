@@ -60,17 +60,16 @@ table.lines { width: 100%; border-collapse: collapse; }
 @if(!empty($issuer['tax_identifier']))<div>{{ $fr ? 'Identifiant fiscal' : 'Tax ID' }} : {{ $issuer['tax_identifier'] }}</div>@endif
 <div>{{ $issuer['phone'] ?? '' }}{{ !empty($issuer['phone']) && !empty($issuer['email']) ? ' · ' : '' }}{{ $issuer['email'] ?? '' }}</div>
 @endif
-<div class="secondary">{{ $document->display_number }}</div>
+@if($document->number)<div class="secondary">N°{{ $document->number }}</div>@endif
 </div>
 @if(!$document->issued_at)<div class="draft">{{ $fr ? 'BROUILLON — document non émis' : 'DRAFT — not issued' }}</div>@endif
-<h1>{{ $pdfTitle }}</h1>
-<table class="metadata"><tr><td>N° {{ $document->display_number }}</td><td class="date">{{ $fr ? 'FAIT LE' : 'DATE' }}<br>{{ $date->format('d/m/Y') }}</td></tr></table>
+<h1>{{ $document->type === 'quote' ? ($fr ? 'DEVIS' : 'QUOTE') : ($fr ? 'FACTURE' : 'INVOICE') }}</h1>
+<table class="metadata"><tr><td>@if($document->number)N°{{ $document->number }}@endif</td><td class="date">{{ $fr ? 'FAIT LE' : 'DATE' }}<br>{{ $date->format('d/m/Y') }}</td></tr></table>
 <div class="client"><strong>{{ $clientName }}</strong>
-@if(!empty($client['company']) && !empty($client['name']) && $client['name'] !== $client['company'])<div>{{ $client['name'] }}</div>@endif
 @if(!empty($client['tax_identifier']))<div><strong>{{ $fr ? 'ICE / Identifiant fiscal' : 'Business / tax ID' }} :</strong> {{ $client['tax_identifier'] }}</div>@endif
 @if(!empty($client['address']))<div class="secondary">{{ $client['address'] }}</div>@endif
 </div>
-<div class="secondary">{{ $document->title }}@if($document->due_on) · {{ $document->type === 'quote' ? ($fr ? 'Valable jusqu’au' : 'Valid until') : ($fr ? 'Échéance' : 'Due date') }} {{ $document->due_on->format('d/m/Y') }}@endif</div>
+<div class="secondary">@if($document->due_on){{ $document->type === 'quote' ? ($fr ? 'Valable jusqu’au' : 'Valid until') : ($fr ? 'Échéance' : 'Due date') }} {{ $document->due_on->format('d/m/Y') }}@endif</div>
 @if($document->source)<div class="secondary">{{ $fr ? 'Référence' : 'Reference' }} : {{ $document->source->number }}</div>@endif
 @if($document->billing_period !== 'one_time')<div class="secondary">{{ $fr ? 'Périodicité' : 'Billing period' }} : {{ $document->billing_period === 'monthly' ? ($fr ? 'Mensuelle' : 'Monthly') : ($fr ? 'Annuelle' : 'Yearly') }}</div>@endif
 <div class="rule"></div>

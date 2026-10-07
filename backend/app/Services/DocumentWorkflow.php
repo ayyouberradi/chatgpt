@@ -94,14 +94,25 @@ final class DocumentWorkflow
                     $this->fail('Complete the contract terms before issuing.');
                 }
             }
-            $year = (int) now()->format('Y');
-            DB::table('document_sequences')->insertOrIgnore(['type' => $document->type, 'year' => $year, 'next_value' => 1]);
-            $sequence = DB::table('document_sequences')->where('type', $document->type)->where('year', $year)->lockForUpdate()->first();
-            DB::table('document_sequences')->where('id', $sequence->id)->update(['next_value' => $sequence->next_value + 1]);
-            $prefix = ['quote' => 'DEV', 'invoice' => 'FAC', 'contract' => 'CTR', 'credit_note' => 'AV'][$document->type] ?? throw new \LogicException('Unknown document type');
+            $issuedAt = now();
+            if (in_array($document->type, ['quote', 'invoice'], true)) {
+                $localDate = $issuedAt->copy()->setTimezone('Africa/Casablanca');
+                $day = $localDate->format('Y-m-d');
+                DB::table('daily_document_sequences')->insertOrIgnore(['type' => $document->type, 'issued_on' => $day, 'next_value' => 1]);
+                $sequence = DB::table('daily_document_sequences')->where('type', $document->type)->where('issued_on', $day)->lockForUpdate()->first();
+                DB::table('daily_document_sequences')->where('id', $sequence->id)->update(['next_value' => $sequence->next_value + 1]);
+                $number = $localDate->format('jmY').'/'.$sequence->next_value;
+            } else {
+                $year = (int) $issuedAt->format('Y');
+                DB::table('document_sequences')->insertOrIgnore(['type' => $document->type, 'year' => $year, 'next_value' => 1]);
+                $sequence = DB::table('document_sequences')->where('type', $document->type)->where('year', $year)->lockForUpdate()->first();
+                DB::table('document_sequences')->where('id', $sequence->id)->update(['next_value' => $sequence->next_value + 1]);
+                $prefix = ['contract' => 'CTR', 'credit_note' => 'AV'][$document->type] ?? throw new \LogicException('Unknown document type');
+                $number = $prefix.'-'.$year.'-'.str_pad((string) $sequence->next_value, 4, '0', STR_PAD_LEFT);
+            }
             $document->fill($totals + [
-                'number' => $prefix.'-'.$year.'-'.str_pad((string) $sequence->next_value, 4, '0', STR_PAD_LEFT),
-                'status' => 'issued', 'issued_at' => now(),
+                'number' => $number,
+                'status' => 'issued', 'issued_at' => $issuedAt,
                 'issuer_snapshot' => $settings->only(['legal_name', 'address', 'email', 'phone', 'business_type', 'tax_mode', 'tax_identifier', 'registration_number', 'payment_instructions', 'pdf_footer']),
                 'client_snapshot' => $document->client->only(['name', 'company', 'email', 'phone', 'address', 'tax_identifier']),
             ])->save();
