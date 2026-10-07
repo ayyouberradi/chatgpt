@@ -68,7 +68,8 @@ class BusinessTest extends TestCase
         $this->assertStringNotContainsString('Paiement intégral', $html);
         $this->assertStringNotContainsString('Référence', $html);
         $this->assertStringNotContainsString('Périodicité', $html);
-        $this->assertStringContainsString('Bank: Test bank', $html);
+        $this->assertStringNotContainsString('Bank: Test bank', $html);
+        $this->assertStringContainsString('Test Studio', $html);
         $this->assertStringContainsString('<td></td><td class="date">', $html);
         $this->assertMatchesRegularExpression('/<h1>Facture N°[^<]+<\/h1>\s*<div class="heading-due secondary">Échéance/', $html);
     }

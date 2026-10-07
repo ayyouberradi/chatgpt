@@ -45,19 +45,11 @@ table.lines { width: 100%; border-collapse: collapse; }
 .summary td:first-child { width: 79%; }
 .summary .total td { background: #333; color: #fff; padding: 11px 13px; font-weight: bold; font-size: 11px; letter-spacing: .6px; text-transform: uppercase; }
 .terms { white-space: pre-line; margin-top: 24px; font-size: 9px; }
-.footer-columns { width: 100%; border-collapse: collapse; }
-.footer-columns td { vertical-align: top; width: 50%; padding: 0 8px; }
-.bank { text-align: left; font-size: 9px; }
-.bank strong { letter-spacing: .5px; }
-.bank .details { white-space: pre-line; line-height: 1.4; margin-top: 3px; }
 .legal-footer { position: fixed; bottom: -115px; left: 0; right: 0; border-top: 3px solid #171717; padding-top: 9px; text-align: center; font-size: 10px; line-height: 1.4; }
 .footer-text { white-space: pre-line; }
 </style></head>
 <body>
 <div class="legal-footer">
-<table class="footer-columns"><tr>
-@if(!empty($issuer['payment_instructions']))<td class="bank"><div class="details">{{ $issuer['payment_instructions'] }}</div></td>@endif
-<td>
 @if($footer)<div class="footer-text">{{ $footer }}</div>
 @else
 <div>{{ $issuer['business_type'] ?? '' }}{{ !empty($issuer['business_type']) ? ' : ' : '' }}{{ $issuer['legal_name'] ?? ($fr ? 'Identité de l’émetteur à configurer' : 'Configure issuer identity') }}</div>
@@ -66,8 +58,6 @@ table.lines { width: 100%; border-collapse: collapse; }
 @if(!empty($issuer['tax_identifier']))<div>{{ $fr ? 'Identifiant fiscal' : 'Tax ID' }} : {{ $issuer['tax_identifier'] }}</div>@endif
 <div>{{ $issuer['phone'] ?? '' }}{{ !empty($issuer['phone']) && !empty($issuer['email']) ? ' · ' : '' }}{{ $issuer['email'] ?? '' }}</div>
 @endif
-@if($document->number)<div class="secondary">N°{{ $document->number }}</div>@endif
-</td></tr></table>
 </div>
 @if($document->status === 'cancelled')<div class="draft">{{ $fr ? 'ANNULÉE — ne pas payer' : 'CANCELLED — do not pay' }}</div>@endif
 @if(!$document->issued_at)<div class="draft">{{ $fr ? 'BROUILLON — document non émis' : 'DRAFT — not issued' }}</div>@endif
