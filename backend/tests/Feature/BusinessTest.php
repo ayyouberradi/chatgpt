@@ -7,6 +7,7 @@ use App\Filament\Resources\Pages\ManageClients;
 use App\Filament\Resources\Pages\ManageInvoices;
 use App\Filament\Resources\Pages\ManageQuotes;
 use App\Filament\Resources\QuoteResource;
+use App\Filament\Widgets\BusinessOverview;
 use App\Models\BusinessClient;
 use App\Models\BusinessDocument;
 use App\Models\BusinessSetting;
@@ -233,6 +234,28 @@ class BusinessTest extends TestCase
         $replacement = $w->issue($w->duplicate($quote, 'invoice'));
         $this->assertSame($quote->total_amount, $replacement->total_amount);
         $this->rejected(fn () => $w->recordPayment($invoice->fresh(), ['amount' => '1.00', 'paid_on' => today()->toDateString(), 'method' => 'cash']));
+    }
+
+    public function test_outstanding_widget_excludes_deleted_invoices_even_with_partial_payments(): void
+    {
+        $w = app(DocumentWorkflow::class);
+        $active = $w->issue($this->draft('invoice'));
+        $draft = $this->draft('invoice');
+        $draft->update(['due_on' => today()->subDay()]);
+        $deleted = $w->issue($draft);
+        $w->recordPayment($deleted, ['amount' => '100.00', 'paid_on' => today()->toDateString(), 'method' => 'cash']);
+        $w->archive($deleted);
+        $widget = new class extends BusinessOverview
+        {
+            public function statsForTest(): array
+            {
+                return $this->getStats();
+            }
+        };
+        $stats = collect($widget->statsForTest());
+        $this->assertSame('1200.00 MAD', $stats->first(fn ($stat) => $stat->getLabel() === 'Outstanding · MAD')->getValue());
+        $this->assertSame(0, $stats->first(fn ($stat) => $stat->getLabel() === 'Overdue invoices')->getValue());
+        $this->assertSame(10000, $deleted->fresh()->paidAmount());
     }
 
     public function test_exact_money_quantity_discount_and_tax(): void
