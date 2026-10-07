@@ -36,7 +36,7 @@ class SettingResource extends Resource
             TextInput::make('tax_percent')->label('Default tax %')->required()->regex('/^\d{1,3}([.,]\d{1,2})?$/')->helperText('Confirm the applicable tax treatment for your business before issuing.'),
             Select::make('currency')->options(['MAD' => 'MAD', 'EUR' => 'EUR', 'USD' => 'USD'])->required(), Select::make('language')->options(['fr' => 'Français', 'en' => 'English'])->required(),
             Textarea::make('pdf_footer')->label('Quote / invoice legal footer')->rows(6)->maxLength(600)->helperText('Optional custom footer: legal name, CNIE, address, ICE, IF, professional tax, phone and email. Keep it to a few short lines. Leave blank to use your business identity fields.')->columnSpanFull(),
-            Textarea::make('payment_instructions')->rows(4)->helperText('Bank details and payment reference instructions printed on documents.'), Textarea::make('default_terms')->rows(5),
+            Textarea::make('payment_instructions')->rows(4)->helperText('Bank details and payment reference instructions printed in the quote / invoice footer.'), Textarea::make('default_terms')->rows(5),
         ])->columns(2);
     }
 

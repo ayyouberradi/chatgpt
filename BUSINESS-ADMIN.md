@@ -63,7 +63,7 @@ WhatsApp opens with a prepared message; this release does not send messages thro
 
 ## Quote and invoice PDF style
 
-Quotes and invoices use the supplied reference's monochrome layout: client identity, date and document number, description/price columns with service scope bullets, a dark total bar, payment details and a legal footer. VAT, discounts, quantities, recurring billing and paid balances remain visible when applicable. Long lists can continue across pages.
+Quotes and invoices use the supplied reference's monochrome layout: client identity, date and document number, description/price columns with service scope bullets, a dark total bar and a footer containing bank/payment details alongside legal business information. VAT, discounts, quantities, recurring billing and paid balances remain visible when applicable. Long lists can continue across pages.
 
 PDF headings show only Devis/Facture (or Quote/Invoice). The client block shows the company without its contact person; the project subject is hidden and validity/due dates remain visible. Metadata titles and filenames use `Client name - Devis/Facture - DD-MM-YYYY` for French documents, or `Client name - Quote/Invoice - DD-MM-YYYY` for English. A company name takes priority over the contact name. Issued documents use the saved client identity and issue date; drafts use their creation date. Dates use Africa/Casablanca. The project subject remains editable separately while drafting.
 
