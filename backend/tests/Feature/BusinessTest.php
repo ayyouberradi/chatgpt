@@ -135,6 +135,17 @@ class BusinessTest extends TestCase
         $this->rejected(fn () => $w->issue($invoice));
     }
 
+    public function test_draft_and_issued_documents_download_as_private_pdfs(): void
+    {
+        $draft = $this->draft();
+        $response = $this->get('/manage/documents/'.$draft->id.'/pdf')->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF-', $response->getContent());
+        $this->assertStringContainsString('no-store', $response->headers->get('Cache-Control'));
+        $issued = app(DocumentWorkflow::class)->issue($draft);
+        $response = $this->get('/manage/documents/'.$issued->id.'/pdf')->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF-', $response->getContent());
+    }
+
     public function test_non_admins_cannot_access_business_or_content_and_guest_pdf_is_private(): void
     {
         $d = $this->draft();

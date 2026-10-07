@@ -46,6 +46,20 @@ php artisan view:clear
 php artisan migrate --force
 php artisan config:cache
 mkdir -p storage/fonts
+# Exercise the production PDF path (Laravel/public does not exist on this host).
+# Render in memory only; never publish a client document or write PDF content to logs.
+php <<'PHP'
+<?php
+require 'vendor/autoload.php';
+$app = require 'bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+$document = App\Models\BusinessDocument::orderBy('id')->first();
+$content = $document
+    ? app(App\Http\Controllers\BusinessPdfController::class)($document)->getContent()
+    : Barryvdh\DomPDF\Facade\Pdf::loadHTML('<html><body style="font-family: DejaVu Sans">PDF deployment check: é è à</body></html>')->output();
+if (!str_starts_with($content, '%PDF-')) throw new RuntimeException('PDF render check failed.');
+echo "Production PDF render check passed.\n";
+PHP
 # The existing shell-created storage link is preserved. No PHP symlink/exec needed.
 [[ -L "$deploy_root/public_html/storage" ]] || { echo 'Existing media storage link is missing' >&2; exit 1; }
 php artisan up
