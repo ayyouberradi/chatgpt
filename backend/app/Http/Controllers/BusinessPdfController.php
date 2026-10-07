@@ -17,6 +17,6 @@ class BusinessPdfController extends Controller
 
         $pdfTitle = $document->pdfTitle();
 
-        return Pdf::loadView('business.document', compact('document', 'issuer', 'client', 'totals', 'pdfTitle'))->setPaper('a4')->setOption('isRemoteEnabled', false)->download($document->pdfFilename())->header('Cache-Control', 'private, no-store');
+        return Pdf::loadView('business.document', compact('document', 'issuer', 'client', 'totals', 'pdfTitle'))->setPaper('a4')->setOption('isRemoteEnabled', false)->stream($document->pdfFilename())->header('Cache-Control', 'private, no-store');
     }
 }
