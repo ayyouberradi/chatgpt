@@ -123,6 +123,10 @@ class BusinessDocument extends Model
 
     public function balanceAmount(): int
     {
+        if ($this->status === 'cancelled') {
+            return 0;
+        }
+
         return max(0, $this->total_amount - $this->paidAmount() - $this->creditAmount());
     }
 
@@ -164,6 +168,9 @@ class BusinessDocument extends Model
 
     public function getDisplayStatusAttribute(): string
     {
+        if ($this->status === 'cancelled') {
+            return 'cancelled';
+        }
         if ($this->type === 'invoice' && $this->issued_at) {
             if ($this->balanceAmount() === 0) {
                 return $this->paidAmount() > 0 ? 'paid' : 'credited';

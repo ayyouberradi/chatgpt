@@ -222,6 +222,19 @@ class BusinessTest extends TestCase
         $this->get(route('business.pdf', $final))->assertOk();
     }
 
+    public function test_deleted_unpaid_invoice_is_cancelled_and_can_be_replaced(): void
+    {
+        $w = app(DocumentWorkflow::class);
+        $quote = $w->accept($w->issue($this->draft()));
+        $invoice = $w->issue($w->duplicate($quote, 'invoice'));
+        $w->archive($invoice);
+        $this->assertSame('cancelled', $invoice->fresh()->status);
+        $this->assertSame(0, $invoice->fresh()->balanceAmount());
+        $replacement = $w->issue($w->duplicate($quote, 'invoice'));
+        $this->assertSame($quote->total_amount, $replacement->total_amount);
+        $this->rejected(fn () => $w->recordPayment($invoice->fresh(), ['amount' => '1.00', 'paid_on' => today()->toDateString(), 'method' => 'cash']));
+    }
+
     public function test_exact_money_quantity_discount_and_tax(): void
     {
         $d = $this->draft();

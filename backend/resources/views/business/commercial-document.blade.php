@@ -68,6 +68,7 @@ table.lines { width: 100%; border-collapse: collapse; }
 @if($document->number)<div class="secondary">N°{{ $document->number }}</div>@endif
 </td></tr></table>
 </div>
+@if($document->status === 'cancelled')<div class="draft">{{ $fr ? 'ANNULÉE — ne pas payer' : 'CANCELLED — do not pay' }}</div>@endif
 @if(!$document->issued_at)<div class="draft">{{ $fr ? 'BROUILLON — document non émis' : 'DRAFT — not issued' }}</div>@endif
 <h1>{{ $document->type === 'quote' ? ($fr ? 'Devis' : 'Quote') : ($fr ? 'Facture' : 'Invoice') }}@if($document->number) N°{{ $document->number }}@endif</h1>
 <table class="metadata"><tr><td>@if($document->number)N°{{ $document->number }}@endif</td><td class="date">{{ $fr ? 'FAIT LE' : 'DATE' }}<br>{{ $date->format('d/m/Y') }}</td></tr></table>

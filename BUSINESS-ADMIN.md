@@ -81,4 +81,4 @@ The client form contains only optional company name, phone, email, client tax id
 
 Draft quotes and invoices can be permanently deleted using **Workflow → Delete draft**, with confirmation. Issued documents remain protected to preserve numbering, payments and document links.
 
-For confirmed quotes and invoices, **Workflow → Delete** removes the document from admin lists while retaining its number, payment history, linked documents and audit entry. Removed invoices still count towards the quote’s invoiced total to prevent duplicate billing. Draft deletion remains permanent.
+For confirmed quotes and invoices, **Workflow → Delete** removes the document from admin lists while retaining its number, payment history, linked documents and audit entry. Removed paid invoices still count towards the quote’s invoiced total. Unpaid invoices without dependent documents are cancelled and stop counting so replacements can be issued. Draft deletion remains permanent.

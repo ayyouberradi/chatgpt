@@ -68,7 +68,7 @@ final class DocumentWorkflow
                         $this->fail('Linked invoices must reference an accepted quote.');
                     }
                     $this->validateInvoiceCopy($document, $source);
-                    $already = (int) BusinessDocument::where('source_document_id', $source->id)->where('type', 'invoice')->whereNotNull('issued_at')->sum('total_amount');
+                    $already = (int) BusinessDocument::where('source_document_id', $source->id)->where('type', 'invoice')->where('status', '!=', 'cancelled')->whereNotNull('issued_at')->sum('total_amount');
                     if ($already + $totals['total_amount'] > $source->total_amount) {
                         $this->fail('Issued invoices would exceed the accepted quote. Use an approved revised quote for additional work.');
                     }
@@ -241,7 +241,7 @@ final class DocumentWorkflow
         if ($deposit->paidAmount() < $deposit->total_amount || $deposit->creditAmount() > 0) {
             $this->fail('Record the full deposit payment before creating or issuing its final balance invoice.');
         }
-        if (BusinessDocument::where('source_document_id', $quote->id)->where('type', 'invoice')->whereNotNull('issued_at')->where('id', '!=', $deposit->id)->when($finalId, fn ($query) => $query->where('id', '!=', $finalId))->exists()) {
+        if (BusinessDocument::where('source_document_id', $quote->id)->where('type', 'invoice')->where('status', '!=', 'cancelled')->whereNotNull('issued_at')->where('id', '!=', $deposit->id)->when($finalId, fn ($query) => $query->where('id', '!=', $finalId))->exists()) {
             $this->fail('Another invoice already bills this quote. Review its invoices before creating a final balance.');
         }
     }
@@ -256,7 +256,7 @@ final class DocumentWorkflow
             $quote = BusinessDocument::lockForUpdate()->findOrFail($quoteId);
             $deposit = BusinessDocument::lockForUpdate()->findOrFail($original->id);
             $this->checkPaidDeposit($deposit, $quote);
-            if (BusinessDocument::where('deposit_invoice_id', $deposit->id)->exists()) {
+            if (BusinessDocument::where('deposit_invoice_id', $deposit->id)->where('status', '!=', 'cancelled')->exists()) {
                 $this->fail('A final balance invoice already exists for this deposit. Open that invoice instead.');
             }
             $draft = $this->duplicate($quote, 'invoice', 100);
@@ -305,7 +305,13 @@ final class DocumentWorkflow
                 $this->fail('Only confirmed quotes and invoices can be removed from the lists.');
             }
             if (! $document->archived_at) {
-                $document->update(['archived_at' => now()]);
+                $cancel = $document->type === 'invoice' && $document->paidAmount() === 0 && $document->creditAmount() === 0
+                    && ! BusinessDocument::where('source_document_id', $document->id)->exists()
+                    && ! BusinessDocument::where('deposit_invoice_id', $document->id)->where('status', '!=', 'cancelled')->exists();
+                $document->update(['archived_at' => now()] + ($cancel ? ['status' => 'cancelled'] : []));
+                if ($cancel) {
+                    AuditEvent::record('invoice.cancelled', $document, ['number' => $document->number]);
+                }
                 AuditEvent::record('document.archived', $document, ['number' => $document->number]);
             }
         });
