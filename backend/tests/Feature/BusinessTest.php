@@ -59,6 +59,20 @@ class BusinessTest extends TestCase
         }
     }
 
+    public function test_invoice_pdf_hides_extra_labels_and_places_due_date_under_heading(): void
+    {
+        BusinessSetting::current()->update(['payment_instructions' => 'Bank: Test bank']);
+        $invoice = app(DocumentWorkflow::class)->issue($this->draft('invoice'));
+        $html = view('business.document', ['pdfTitle' => $invoice->pdfTitle(), 'document' => $invoice->load('items', 'source', 'client'), 'issuer' => $invoice->issuer_snapshot, 'client' => $invoice->client_snapshot, 'totals' => $invoice->totals()])->render();
+        $this->assertStringNotContainsString('COORDONNÉES BANCAIRES / PAIEMENT', $html);
+        $this->assertStringNotContainsString('Paiement intégral', $html);
+        $this->assertStringNotContainsString('Référence', $html);
+        $this->assertStringNotContainsString('Périodicité', $html);
+        $this->assertStringContainsString('Bank: Test bank', $html);
+        $this->assertStringContainsString('<td></td><td class="date">', $html);
+        $this->assertMatchesRegularExpression('/<h1>Facture N°[^<]+<\/h1>\s*<div class="heading-due secondary">Échéance/', $html);
+    }
+
     public function test_quote_invoice_portions_copy_services_and_prevent_overbilling(): void
     {
         $w = app(DocumentWorkflow::class);

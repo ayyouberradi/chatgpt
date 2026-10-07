@@ -19,7 +19,8 @@ $credited = $document->issued_at && $document->type === 'invoice' ? $document->c
 <style>
 @page { margin: 48px 38px 145px; }
 body { font-family: DejaVu Sans, sans-serif; font-size: 11px; color: #171717; line-height: 1.6; }
-h1 { margin: 2px 0 30px; text-align: center; font-size: 15px; font-weight: normal; }
+h1 { margin: 2px 0 2px; text-align: center; font-size: 15px; font-weight: normal; }
+.heading-due { text-align: center; margin-bottom: 30px; }
 .metadata { width: 100%; margin-bottom: 25px; font-size: 11px; letter-spacing: 1px; }
 .metadata td { width: 50%; vertical-align: top; }
 .metadata .date { text-align: right; }
@@ -55,7 +56,7 @@ table.lines { width: 100%; border-collapse: collapse; }
 <body>
 <div class="legal-footer">
 <table class="footer-columns"><tr>
-@if(!empty($issuer['payment_instructions']))<td class="bank"><strong>{{ $fr ? 'COORDONNÉES BANCAIRES / PAIEMENT' : 'BANK / PAYMENT DETAILS' }}</strong><div class="details">{{ $issuer['payment_instructions'] }}</div></td>@endif
+@if(!empty($issuer['payment_instructions']))<td class="bank"><div class="details">{{ $issuer['payment_instructions'] }}</div></td>@endif
 <td>
 @if($footer)<div class="footer-text">{{ $footer }}</div>
 @else
@@ -71,16 +72,14 @@ table.lines { width: 100%; border-collapse: collapse; }
 @if($document->status === 'cancelled')<div class="draft">{{ $fr ? 'ANNULÉE — ne pas payer' : 'CANCELLED — do not pay' }}</div>@endif
 @if(!$document->issued_at)<div class="draft">{{ $fr ? 'BROUILLON — document non émis' : 'DRAFT — not issued' }}</div>@endif
 <h1>{{ $document->type === 'quote' ? ($fr ? 'Devis' : 'Quote') : ($fr ? 'Facture' : 'Invoice') }}@if($document->number) N°{{ $document->number }}@endif</h1>
-<table class="metadata"><tr><td>@if($document->number)N°{{ $document->number }}@endif</td><td class="date">{{ $fr ? 'FAIT LE' : 'DATE' }}<br>{{ $date->format('d/m/Y') }}</td></tr></table>
+<div class="heading-due secondary">@if($document->type === 'invoice' && $document->due_on){{ $fr ? 'Échéance' : 'Due date' }} {{ $document->due_on->format('d/m/Y') }}@endif</div>
+<table class="metadata"><tr><td></td><td class="date">{{ $fr ? 'FAIT LE' : 'DATE' }}<br>{{ $date->format('d/m/Y') }}</td></tr></table>
 <div class="client"><strong>{{ $clientName }}</strong>
 @if(!empty($client['tax_identifier']))<div><strong>{{ $fr ? 'ICE / Identifiant fiscal' : 'Business / tax ID' }} :</strong> {{ $client['tax_identifier'] }}</div>@endif
 @if(!empty($client['address']))<div class="secondary">{{ $client['address'] }}</div>@endif
 </div>
-<div class="secondary">@if($document->due_on){{ $document->type === 'quote' ? ($fr ? 'Valable jusqu’au' : 'Valid until') : ($fr ? 'Échéance' : 'Due date') }} {{ $document->due_on->format('d/m/Y') }}@endif</div>
-@if($document->source)<div class="secondary">{{ $fr ? 'Référence' : 'Reference' }} : {{ $document->source->number }}</div>@endif
+@if($document->type === 'quote' && $document->due_on)<div class="secondary">{{ $fr ? 'Valable jusqu’au' : 'Valid until' }} {{ $document->due_on->format('d/m/Y') }}</div>@endif
 @if($document->depositInvoice)<div class="secondary">{{ $fr ? 'Facture de solde · Facture d’acompte' : 'Final balance · Deposit invoice' }} N°{{ $document->depositInvoice->number }}</div>@endif
-@if($document->type === 'invoice' && $document->payment_percent)<div class="secondary">{{ $document->payment_percent === 50 ? ($fr ? 'Acompte — 50% du devis' : 'Deposit — 50% of quote') : ($fr ? 'Paiement intégral — 100% du devis' : 'Full payment — 100% of quote') }}</div>@endif
-@if($document->billing_period !== 'one_time')<div class="secondary">{{ $fr ? 'Périodicité' : 'Billing period' }} : {{ $document->billing_period === 'monthly' ? ($fr ? 'Mensuelle' : 'Monthly') : ($fr ? 'Annuelle' : 'Yearly') }}</div>@endif
 <div class="rule"></div>
 <div class="line-area"><table class="lines"><thead><tr><th>DESCRIPTION</th><th class="price">{{ $fr ? 'PRIX' : 'PRICE' }}</th></tr></thead><tbody>
 @foreach($document->items as $item)

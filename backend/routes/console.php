@@ -12,3 +12,9 @@ Artisan::command('admin:create {email}', function () {
  User::create(['name' => 'Administrator', 'email' => $email, 'password' => Hash::make($password)]);
  $this->info('Admin created.');
 })->purpose('Create an administrator securely; no public registration.');
+
+\Illuminate\Support\Facades\Artisan::command('billing:run', function () {
+    $result = app(\App\Services\RecurringBilling::class)->run();
+    $this->info('::notice::Monthly billing: '.json_encode($result));
+    return $result['errors'] ? 1 : 0;
+})->purpose('Issue due monthly invoices and create admin payment reminders');

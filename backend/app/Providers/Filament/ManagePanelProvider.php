@@ -29,6 +29,7 @@ class ManagePanelProvider extends PanelProvider
             ->id('manage')
             ->path('manage')
             ->login()
+            ->databaseNotifications()
             ->brandName('Ayoub · Business')
             ->defaultAvatarProvider(LocalAvatarProvider::class)
             ->navigationGroups(['Sales', 'Finance', 'Website', 'Settings'])

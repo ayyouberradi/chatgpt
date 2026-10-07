@@ -82,3 +82,11 @@ The client form contains only optional company name, phone, email, client tax id
 Draft quotes and invoices can be permanently deleted using **Workflow → Delete draft**, with confirmation. Issued documents remain protected to preserve numbering, payments and document links.
 
 For confirmed quotes and invoices, **Workflow → Delete** removes the document from admin lists while retaining its number, payment history, linked documents and audit entry. Removed paid invoices still count towards the quote’s invoiced total. Unpaid invoices without dependent documents are cancelled and stop counting so replacements can be issued. Draft deletion remains permanent.
+
+## Automatic monthly billing
+
+In **Finance → Monthly billing**, choose an accepted quote whose billing period and services are Monthly. Set the first invoice date, payment deadline in days and optional last billing date. The quote total is the monthly price; every invoice copies the approved services and is issued automatically at 100% of that price. No monthly schedule is created without an admin selecting the quote.
+
+The `monthly-billing.yml` GitHub workflow checks daily at 07:15 UTC (GitHub can delay scheduled runs); `workflow_dispatch` can run a check manually. It invokes `php artisan billing:run` on Hostinger. Missed active billing periods are caught up, up to twelve per run. Each period can generate only one invoice, even if an invoice is subsequently deleted. Issuance numbers and dates reflect the actual issue date. Pausing stops future invoices; resuming skips paused months. Ending is permanent. Changes to scope or pricing require an accepted revised quote and a new schedule.
+
+The admin notification bell shows newly issued invoices, payments due within seven days, payments due today and weekly overdue reminders. Recording full payment or deleting an invoice stops its reminders. Notifications are stored synchronously and need no queue worker. Billing errors appear on the schedule and notify admins; invoice creation rolls back on failure. These are admin reminders, not automatic WhatsApp or email messages to clients.
