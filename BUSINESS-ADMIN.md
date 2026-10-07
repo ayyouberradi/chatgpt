@@ -71,4 +71,4 @@ In Business settings, fill **Payment instructions** with the account holder and 
 
 The **Preview PDF** action opens the document in a new tab using the browser PDF viewer. Use the viewer’s download button to save it. PDF responses remain private and are not cached.
 
-Quote rows provide **Issue quote**, **Mark accepted** and **Mark rejected** directly beside the preview. Issue first to produce a numbered client quote without the draft banner. Recording a decision on a draft issues it and records the decision atomically, with the same validation and content locking as normal issuance.
+Quote rows provide **Mark accepted** and **Mark rejected** directly beside the preview, with **Issue** in the **Workflow** menu. Issue first to produce a numbered client quote without the draft banner. Recording a decision on a draft issues it and records the decision atomically, with the same validation and content locking as normal issuance.
