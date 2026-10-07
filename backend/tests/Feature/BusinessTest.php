@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Filament\Resources\Pages\ManageClients;
 use App\Filament\Resources\Pages\ManageInvoices;
 use App\Filament\Resources\Pages\ManageQuotes;
+use App\Filament\Resources\QuoteResource;
 use App\Models\BusinessClient;
 use App\Models\BusinessDocument;
 use App\Models\BusinessSetting;
@@ -180,6 +181,23 @@ class BusinessTest extends TestCase
         $b = $second->convertToClient();
         $this->assertNotSame($a->id, $b->id);
         $this->assertSame($a->id, $first->fresh()->convertToClient()->id);
+    }
+
+    public function test_admin_can_delete_draft_quotes_and_invoices_but_not_issued_documents(): void
+    {
+        Filament::setCurrentPanel(Filament::getPanel('manage'));
+        Filament::bootCurrentPanel();
+        $quote = $this->draft();
+        $itemId = $quote->items()->first()->id;
+        Livewire::test(ManageQuotes::class)->callTableAction('delete', $quote)->assertHasNoTableActionErrors();
+        $this->assertDatabaseMissing('business_documents', ['id' => $quote->id]);
+        $this->assertDatabaseMissing('document_items', ['id' => $itemId]);
+        $invoice = $this->draft('invoice');
+        Livewire::test(ManageInvoices::class)->callTableAction('delete', $invoice)->assertHasNoTableActionErrors();
+        $this->assertDatabaseMissing('business_documents', ['id' => $invoice->id]);
+        $issued = app(DocumentWorkflow::class)->issue($this->draft());
+        $this->assertFalse(QuoteResource::canDelete($issued));
+        $this->rejected(fn () => $issued->delete());
     }
 
     public function test_exact_money_quantity_discount_and_tax(): void
