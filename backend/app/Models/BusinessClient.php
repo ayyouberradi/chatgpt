@@ -13,6 +13,20 @@ class BusinessClient extends Model
         return ['is_active' => 'boolean'];
     }
 
+    protected static function booted(): void
+    {
+        static::saving(function (self $client) {
+            $client->currency = $client->currency ?: 'MAD';
+            $client->language = $client->language ?: 'fr';
+            $client->email = trim($client->email ?? '') ?: null;
+        });
+    }
+
+    public function getDisplayNameAttribute(): string
+    {
+        return trim($this->company ?? '') ?: (trim($this->name ?? '') ?: 'Client #'.$this->id);
+    }
+
     public function documents()
     {
         return $this->hasMany(BusinessDocument::class);

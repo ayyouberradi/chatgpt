@@ -5,9 +5,7 @@ namespace App\Filament\Resources;
 use App\Models\BusinessClient;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
@@ -34,18 +32,18 @@ class ClientResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            TextInput::make('name')->required()->maxLength(255), TextInput::make('company')->maxLength(255),
-            TextInput::make('email')->email()->required()->unique(ignoreRecord: true), TextInput::make('phone')->tel()->maxLength(60),
-            Textarea::make('address')->label('Billing address')->rows(3), TextInput::make('tax_identifier')->label('Client tax identifier'),
-            Select::make('currency')->options(['MAD' => 'MAD', 'EUR' => 'EUR', 'USD' => 'USD'])->default('MAD')->required(),
-            Select::make('language')->options(['fr' => 'Français', 'en' => 'English'])->default('fr')->required(),
-            Textarea::make('notes')->rows(3), Toggle::make('is_active')->default(true),
+            TextInput::make('company')->label('Company name')->maxLength(255),
+            TextInput::make('phone')->tel()->maxLength(60),
+            TextInput::make('email')->email()->maxLength(255)->unique(ignoreRecord: true),
+            TextInput::make('tax_identifier')->label('Client tax identifier')->maxLength(255),
+            Select::make('currency')->options(['MAD' => 'MAD', 'EUR' => 'EUR', 'USD' => 'USD'])->default('MAD')->helperText('Uses MAD when left blank.'),
+            Select::make('language')->options(['fr' => 'Français', 'en' => 'English'])->default('fr')->helperText('Uses French when left blank.'),
         ])->columns(2);
     }
 
     public static function table(Table $table): Table
     {
-        return $table->columns([TextColumn::make('name')->searchable()->sortable(), TextColumn::make('company')->searchable(), TextColumn::make('email')->searchable(), TextColumn::make('phone'), IconColumn::make('is_active')->boolean()])->recordActions([EditAction::make()->modalWidth('5xl')])->defaultSort('id', 'desc');
+        return $table->columns([TextColumn::make('company')->label('Company name')->state(fn (BusinessClient $record) => $record->display_name)->searchable(['company', 'name'])->sortable(), TextColumn::make('email')->searchable(), TextColumn::make('phone'), IconColumn::make('is_active')->boolean()])->recordActions([EditAction::make()->modalWidth('5xl')])->defaultSort('id', 'desc');
     }
 
     public static function canCreate(): bool

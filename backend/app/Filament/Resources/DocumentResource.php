@@ -69,7 +69,7 @@ abstract class DocumentResource extends Resource
 
         return $schema->components([
             Section::make('Document')->schema([
-                Select::make('business_client_id')->label('Client')->relationship('client', 'name')->searchable()->preload()->required()->live()->afterStateUpdated(function ($state, Set $set) {
+                Select::make('business_client_id')->label('Client')->relationship('client', 'company')->getOptionLabelFromRecordUsing(fn (BusinessClient $record) => $record->display_name)->searchable(['company', 'name', 'phone', 'email'])->preload()->required()->live()->afterStateUpdated(function ($state, Set $set) {
                     if ($c = BusinessClient::find($state)) {
                         $set('currency', $c->currency);
                         $set('language', $c->language);
@@ -80,7 +80,7 @@ abstract class DocumentResource extends Resource
                 Select::make('language')->options(['fr' => 'Français', 'en' => 'English'])->default(fn () => BusinessSetting::current()->language)->required(),
                 Select::make('billing_period')->options(['one_time' => 'One-time', 'monthly' => 'Monthly', 'yearly' => 'Yearly'])->default('one_time')->required()->helperText('Use separate documents for one-time and recurring charges.'),
                 DatePicker::make('due_on')->label(static::documentType() === 'quote' ? 'Valid until' : 'Due date')->default(now()->addDays(30))->required(in_array(static::documentType(), ['quote', 'invoice'])),
-                Select::make('source_document_id')->label(static::documentType() === 'credit_note' ? 'Original invoice' : 'Accepted quote')->options(fn () => BusinessDocument::where('type', static::documentType() === 'credit_note' ? 'invoice' : 'quote')->whereNotNull('issued_at')->when(static::documentType() !== 'credit_note', fn ($q) => $q->where('status', 'accepted'))->orderByDesc('id')->get()->mapWithKeys(fn ($d) => [$d->id => $d->number.' · '.$d->client->name]))->searchable()->visible(static::documentType() !== 'quote')->required(in_array(static::documentType(), ['contract', 'credit_note'])),
+                Select::make('source_document_id')->label(static::documentType() === 'credit_note' ? 'Original invoice' : 'Accepted quote')->options(fn () => BusinessDocument::where('type', static::documentType() === 'credit_note' ? 'invoice' : 'quote')->whereNotNull('issued_at')->when(static::documentType() !== 'credit_note', fn ($q) => $q->where('status', 'accepted'))->orderByDesc('id')->get()->mapWithKeys(fn ($d) => [$d->id => $d->number.' · '.$d->client->display_name]))->searchable()->visible(static::documentType() !== 'quote')->required(in_array(static::documentType(), ['contract', 'credit_note'])),
                 Select::make('contract_template_id')->label('Approved contract template')->options(fn () => ContractTemplate::where('is_approved', true)->pluck('name', 'id'))->visible(static::documentType() === 'contract')->required(static::documentType() === 'contract')->live()->afterStateUpdated(function ($state, Set $set) {
                     if ($t = ContractTemplate::find($state)) {
                         $set('terms', $t->body);
@@ -134,7 +134,7 @@ abstract class DocumentResource extends Resource
     {
         return $table->columns([
             TextColumn::make('display_number')->label('Number')->searchable(['number', 'title']),
-            TextColumn::make('client.name')->label('Client')->searchable(), TextColumn::make('title')->limit(35),
+            TextColumn::make('client.company')->label('Client')->state(fn (BusinessDocument $record) => $record->client->display_name)->searchable(), TextColumn::make('title')->limit(35),
             TextColumn::make('display_total')->label('Total'), TextColumn::make('display_status')->label('Status')->badge(),
             TextColumn::make('balance')->label('Balance')->state(fn (BusinessDocument $r) => $r->type === 'invoice' && $r->issued_at ? Money::decimal($r->balanceAmount()).' '.$r->currency : '—'),
             TextColumn::make('due_on')->date()->sortable(),

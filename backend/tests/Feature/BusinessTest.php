@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Resources\Pages\ManageClients;
 use App\Filament\Resources\Pages\ManageInvoices;
 use App\Filament\Resources\Pages\ManageQuotes;
 use App\Models\BusinessClient;
@@ -147,6 +148,38 @@ class BusinessTest extends TestCase
         $this->assertSame($quote->id, $final->source_document_id);
         $this->assertSame(60000, $final->totals()['total_amount']);
         Livewire::test(ManageInvoices::class)->mountTableAction('view', $final)->assertHasNoTableActionErrors();
+    }
+
+    public function test_client_fields_are_optional_and_documents_need_no_billing_address(): void
+    {
+        Filament::setCurrentPanel(Filament::getPanel('manage'));
+        Filament::bootCurrentPanel();
+        Livewire::test(ManageClients::class)->callAction('create', ['company' => null, 'phone' => null, 'email' => null, 'tax_identifier' => null, 'currency' => null, 'language' => null])->assertHasNoActionErrors();
+        $client = BusinessClient::firstOrFail();
+        $this->assertNull($client->email);
+        $this->assertNull($client->address);
+        $this->assertSame('MAD', $client->currency);
+        $this->assertSame('fr', $client->language);
+        Livewire::test(ManageClients::class)->callAction('create', ['company' => 'Company only', 'email' => null])->assertHasNoActionErrors();
+        $company = BusinessClient::where('company', 'Company only')->firstOrFail();
+        $quote = $this->draft();
+        $quote->update(['business_client_id' => $company->id]);
+        $w = app(DocumentWorkflow::class);
+        $quote = $w->accept($w->issue($quote));
+        $invoice = $w->issue($w->duplicate($quote, 'invoice'));
+        $this->assertNull($invoice->client_snapshot['email']);
+        $this->assertNull($invoice->client_snapshot['address']);
+        $this->get(route('business.pdf', $invoice))->assertOk()->assertHeader('Content-Type', 'application/pdf');
+    }
+
+    public function test_leads_without_email_do_not_merge_anonymous_clients(): void
+    {
+        $first = Lead::create(['name' => 'First client', 'email' => '', 'phone' => '+212600000001']);
+        $second = Lead::create(['name' => 'Second client', 'email' => '', 'phone' => '+212600000002']);
+        $a = $first->convertToClient();
+        $b = $second->convertToClient();
+        $this->assertNotSame($a->id, $b->id);
+        $this->assertSame($a->id, $first->fresh()->convertToClient()->id);
     }
 
     public function test_exact_money_quantity_discount_and_tax(): void

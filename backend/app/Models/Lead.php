@@ -71,7 +71,10 @@ class Lead extends Model
     public function convertToClient(): BusinessClient
     {
         return DB::transaction(function () {
-            $client = BusinessClient::firstOrCreate(['email' => $this->email], ['name' => $this->name, 'phone' => $this->phone, 'currency' => 'MAD', 'language' => 'fr']);
+            $client = $this->business_client_id ? BusinessClient::findOrFail($this->business_client_id) : null;
+            $email = trim($this->email ?? '') ?: null;
+            $attributes = ['name' => $this->name, 'phone' => $this->phone, 'currency' => 'MAD', 'language' => 'fr'];
+            $client ??= $email ? BusinessClient::firstOrCreate(['email' => $email], $attributes) : BusinessClient::create($attributes);
             $this->update(['business_client_id' => $client->id, 'status' => 'qualified']);
             AuditEvent::record('lead.converted', $this, ['client_id' => $client->id]);
 

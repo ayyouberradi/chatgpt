@@ -31,9 +31,6 @@ final class DocumentWorkflow
             if ($settings->tax_mode !== 'vat' && $document->tax_basis_points !== 0) {
                 $this->fail('Tax must be zero when the issuer is not configured for VAT.');
             }
-            if (! $document->client->address) {
-                $this->fail('Add the client billing address before issuing.');
-            }
             if ($document->items->isEmpty()) {
                 $this->fail('Add at least one line item.');
             }

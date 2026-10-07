@@ -7,7 +7,7 @@ The new Laravel / Filament panel lives at `/manage`. Sign in with your existing 
 1. Open **Business settings** and edit the existing row. Enter your legal business name, billing address, email, business status, relevant identifiers, payment instructions, and tax treatment. Defaults are French documents and MAD; EUR/USD and English are also available. Issuing is blocked until identity and tax treatment are configured. No VAT rate is assumed.
 2. Review **Service catalogue**. Existing website services are imported once as starting entries. Check each price, currency, billing period, deliverables, exclusions, and included revisions. Catalogue pricing is separate from public website marketing prices.
 3. Complete and review **Contract templates**, then mark appropriate templates approved. The initial French/English entries are unapproved drafting prompts. Changing a template does not rewrite existing contracts.
-4. Add a client with their billing address. Create a quote, select services or enter custom lines, and preview its PDF. Save before opening the PDF or issuing.
+4. Add a client with whichever details are available; no client fields or billing address are required. Create a quote, select services or enter custom lines, and preview its PDF. Save before opening the PDF or issuing.
 
 ## Sales workflow
 
@@ -76,3 +76,5 @@ Quote rows provide **Mark accepted** and **Mark rejected** directly beside the p
 Invoices are created from an accepted quote, either through its **Create invoice** workflow action or **Invoices → Create invoice from quote**. Choose **Full payment (100%)** or **Deposit (50%)**. Client, services, deliverables, prices, currency, tax and terms are copied from the quote; invoice forms allow the due date and internal notes to be edited. The PDF identifies the linked quote and payment portion. Payment type describes the amount invoiced, not money received: record actual payments separately. Existing issued invoices remain unchanged.
 
 After recording the full payment against an issued 50% deposit invoice, use its **Workflow → Create final balance invoice** action. The draft is linked to both the accepted quote and deposit invoice, copies the quote services, and invoices exactly the quote total minus the deposit total (including remaining tax, discount and cent rounding). Preview and issue it when work is complete, then record its payment separately. The action prevents duplicate final invoices and requires review if other invoices already bill the same quote.
+
+The client form contains only optional company name, phone, email, client tax identifier, currency and language. Blank currency/language use MAD/French. Clients do not need email or billing address to issue quotes/invoices. Existing contact names and addresses remain stored, while the simplified form hides them. Unnamed clients are identifiable by their client ID in selectors.
