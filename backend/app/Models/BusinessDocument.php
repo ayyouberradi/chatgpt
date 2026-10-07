@@ -20,7 +20,7 @@ class BusinessDocument extends Model
     protected static function booted(): void
     {
         static::updating(function (self $document) {
-            if ($document->getOriginal('issued_at') && $document->isDirty(['type', 'payment_percent', 'number', 'business_client_id', 'source_document_id', 'contract_template_id', 'title', 'currency', 'language', 'billing_period', 'due_on', 'discount_amount', 'tax_basis_points', 'subtotal_amount', 'tax_amount', 'total_amount', 'terms', 'notes', 'issuer_snapshot', 'client_snapshot', 'issued_at'])) {
+            if ($document->getOriginal('issued_at') && $document->isDirty(['type', 'deposit_invoice_id', 'payment_percent', 'number', 'business_client_id', 'source_document_id', 'contract_template_id', 'title', 'currency', 'language', 'billing_period', 'due_on', 'discount_amount', 'tax_basis_points', 'subtotal_amount', 'tax_amount', 'total_amount', 'terms', 'notes', 'issuer_snapshot', 'client_snapshot', 'issued_at'])) {
                 throw ValidationException::withMessages(['document' => 'Issued documents cannot be edited. Create a new draft revision.']);
             }
         });
@@ -39,6 +39,11 @@ class BusinessDocument extends Model
     public function source()
     {
         return $this->belongsTo(self::class, 'source_document_id');
+    }
+
+    public function depositInvoice()
+    {
+        return $this->belongsTo(self::class, 'deposit_invoice_id');
     }
 
     public function template()
@@ -92,9 +97,11 @@ class BusinessDocument extends Model
         if ($this->tax_basis_points > 10000) {
             throw ValidationException::withMessages(['tax_percent' => 'Tax must be between 0 and 100%.']);
         }
-        $tax = $this->type === 'invoice' && $this->payment_percent && $this->source
+        $tax = $this->type === 'invoice' && $this->deposit_invoice_id
+            ? $this->source->tax_amount - $this->depositInvoice->tax_amount
+            : ($this->type === 'invoice' && $this->payment_percent && $this->source
             ? Money::rounded($this->source->tax_amount * $this->payment_percent, 100)
-            : Money::rounded(($subtotal - $this->discount_amount) * $this->tax_basis_points, 10000);
+            : Money::rounded(($subtotal - $this->discount_amount) * $this->tax_basis_points, 10000));
 
         $total = $subtotal - $this->discount_amount + $tax;
         if ($total > 99999999999) {

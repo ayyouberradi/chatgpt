@@ -10,7 +10,7 @@ class BusinessPdfController extends Controller
 {
     public function __invoke(BusinessDocument $document)
     {
-        $document->load(['client', 'items', 'source']);
+        $document->load(['client', 'items', 'source', 'depositInvoice']);
         $issuer = $document->issued_at ? $document->issuer_snapshot : BusinessSetting::current()->toArray();
         $client = $document->issued_at ? $document->client_snapshot : $document->client->toArray();
         $totals = $document->issued_at ? $document->only(['subtotal_amount', 'tax_amount', 'total_amount']) : $document->totals();

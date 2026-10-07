@@ -107,6 +107,48 @@ class BusinessTest extends TestCase
         $this->assertSame(1, $invoice->items()->count());
     }
 
+    public function test_paid_deposit_final_invoice_links_quote_and_deposit_with_exact_remaining_total(): void
+    {
+        $w = app(DocumentWorkflow::class);
+        $draft = $this->draft();
+        $draft->items()->first()->update(['unit_price' => '1000.01']);
+        $quote = $w->accept($w->issue($draft));
+        $deposit = $w->issue($w->duplicate($quote, 'invoice', 50));
+        $this->rejected(fn () => $w->finalInvoice($deposit));
+        $payment = $w->recordPayment($deposit, ['amount' => Money::decimal($deposit->total_amount), 'paid_on' => today()->toDateString(), 'method' => 'bank_transfer']);
+        $final = $w->finalInvoice($deposit);
+        $this->assertSame($quote->id, $final->source_document_id);
+        $this->assertSame($deposit->id, $final->deposit_invoice_id);
+        $this->assertSame($quote->total_amount - $deposit->total_amount, $final->totals()['total_amount']);
+        $this->assertSame($quote->tax_amount - $deposit->tax_amount, $final->totals()['tax_amount']);
+        $this->rejected(fn () => $w->finalInvoice($deposit));
+        $w->voidPayment($payment, 'Bank transfer reversed');
+        $this->rejected(fn () => $w->issue($final));
+        $w->recordPayment($deposit, ['amount' => Money::decimal($deposit->total_amount), 'paid_on' => today()->toDateString(), 'method' => 'bank_transfer']);
+        $final = $w->issue($final);
+        $this->assertSame($quote->total_amount, $deposit->total_amount + $final->total_amount);
+        $this->assertSame(0, $final->paidAmount());
+        $html = view('business.document', ['document' => $final->load('client', 'items', 'source', 'depositInvoice'), 'issuer' => $final->issuer_snapshot, 'client' => $final->client_snapshot, 'totals' => $final->totals(), 'pdfTitle' => $final->pdfTitle()])->render();
+        $this->assertStringContainsString('Facture d’acompte', $html);
+        $this->assertStringContainsString($deposit->number, $html);
+        $this->assertStringContainsString('SOLDE À FACTURER', $html);
+    }
+
+    public function test_admin_creates_final_invoice_from_paid_deposit(): void
+    {
+        Filament::setCurrentPanel(Filament::getPanel('manage'));
+        Filament::bootCurrentPanel();
+        $w = app(DocumentWorkflow::class);
+        $quote = $w->accept($w->issue($this->draft()));
+        $deposit = $w->issue($w->duplicate($quote, 'invoice', 50));
+        $w->recordPayment($deposit, ['amount' => '600.00', 'paid_on' => today()->toDateString(), 'method' => 'bank_transfer']);
+        Livewire::test(ManageInvoices::class)->callTableAction('final_invoice', $deposit)->assertHasNoTableActionErrors();
+        $final = BusinessDocument::where('deposit_invoice_id', $deposit->id)->firstOrFail();
+        $this->assertSame($quote->id, $final->source_document_id);
+        $this->assertSame(60000, $final->totals()['total_amount']);
+        Livewire::test(ManageInvoices::class)->mountTableAction('view', $final)->assertHasNoTableActionErrors();
+    }
+
     public function test_exact_money_quantity_discount_and_tax(): void
     {
         $d = $this->draft();

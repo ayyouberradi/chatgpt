@@ -236,19 +236,66 @@ final class DocumentWorkflow
         });
     }
 
+    private function checkPaidDeposit(BusinessDocument $deposit, BusinessDocument $quote, ?int $finalId = null): void
+    {
+        if ($deposit->type !== 'invoice' || ! $deposit->issued_at || $deposit->payment_percent !== 50 || $deposit->source_document_id !== $quote->id || $quote->status !== 'accepted') {
+            $this->fail('Select an issued 50% deposit invoice linked to an accepted quote.');
+        }
+        if ($deposit->paidAmount() < $deposit->total_amount || $deposit->creditAmount() > 0) {
+            $this->fail('Record the full deposit payment before creating or issuing its final balance invoice.');
+        }
+        if (BusinessDocument::where('source_document_id', $quote->id)->where('type', 'invoice')->whereNotNull('issued_at')->where('id', '!=', $deposit->id)->when($finalId, fn ($query) => $query->where('id', '!=', $finalId))->exists()) {
+            $this->fail('Another invoice already bills this quote. Review its invoices before creating a final balance.');
+        }
+    }
+
+    public function finalInvoice(BusinessDocument $original): BusinessDocument
+    {
+        return DB::transaction(function () use ($original) {
+            $quoteId = BusinessDocument::findOrFail($original->id)->source_document_id;
+            if (! $quoteId) {
+                $this->fail('The deposit must be linked to a quote.');
+            }
+            $quote = BusinessDocument::lockForUpdate()->findOrFail($quoteId);
+            $deposit = BusinessDocument::lockForUpdate()->findOrFail($original->id);
+            $this->checkPaidDeposit($deposit, $quote);
+            if (BusinessDocument::where('deposit_invoice_id', $deposit->id)->exists()) {
+                $this->fail('A final balance invoice already exists for this deposit. Open that invoice instead.');
+            }
+            $draft = $this->duplicate($quote, 'invoice', 100);
+            $draft->update([
+                'deposit_invoice_id' => $deposit->id,
+                'payment_percent' => null,
+                'discount_amount' => $quote->discount_amount - $deposit->discount_amount,
+            ]);
+            $depositItems = $deposit->items->values();
+            foreach ($draft->items->values() as $index => $item) {
+                $item->update(['billed_amount' => $quote->items->values()[$index]->lineAmount() - $depositItems[$index]->lineAmount()]);
+            }
+            AuditEvent::record('invoice.final_balance_created', $draft, ['quote_id' => $quote->id, 'deposit_invoice_id' => $deposit->id]);
+
+            return $draft->fresh();
+        }, 5);
+    }
+
     private function validateInvoiceCopy(BusinessDocument $invoice, BusinessDocument $quote): void
     {
-        if (! in_array((int) $invoice->payment_percent, [50, 100], true)) {
+        if ($invoice->deposit_invoice_id) {
+            $deposit = BusinessDocument::lockForUpdate()->findOrFail($invoice->deposit_invoice_id);
+            $this->checkPaidDeposit($deposit, $quote, $invoice->id);
+        } elseif (! in_array((int) $invoice->payment_percent, [50, 100], true)) {
             $this->fail('Choose full payment (100%) or deposit (50%).');
         }
-        if ($invoice->tax_basis_points !== $quote->tax_basis_points || $invoice->discount_amount !== Money::rounded($quote->discount_amount * $invoice->payment_percent, 100)) {
+        $expectedDiscount = isset($deposit) ? $quote->discount_amount - $deposit->discount_amount : Money::rounded($quote->discount_amount * $invoice->payment_percent, 100);
+        if ($invoice->tax_basis_points !== $quote->tax_basis_points || $invoice->discount_amount !== $expectedDiscount) {
             $this->fail('Invoice prices and tax must come from the accepted quote.');
         }
         $fields = ['catalogue_service_id', 'description', 'scope', 'billing_period', 'quantity_milli', 'unit_amount', 'position'];
         if ($invoice->items->map->only($fields)->values()->all() !== $quote->items->map->only($fields)->values()->all()) {
             $this->fail('Invoice services must match the accepted quote. Create a revised quote to change services.');
         }
-        if ($invoice->totals()['total_amount'] !== Money::rounded($quote->total_amount * $invoice->payment_percent, 100)) {
+        $expectedTotal = isset($deposit) ? $quote->total_amount - $deposit->total_amount : Money::rounded($quote->total_amount * $invoice->payment_percent, 100);
+        if ($invoice->totals()['total_amount'] !== $expectedTotal) {
             $this->fail('Invoice amount must match the selected quote payment portion.');
         }
     }
