@@ -297,6 +297,20 @@ final class DocumentWorkflow
         }
     }
 
+    public function archive(BusinessDocument $original): void
+    {
+        DB::transaction(function () use ($original) {
+            $document = BusinessDocument::lockForUpdate()->findOrFail($original->id);
+            if (! in_array($document->type, ['quote', 'invoice'], true) || ! $document->issued_at) {
+                $this->fail('Only confirmed quotes and invoices can be removed from the lists.');
+            }
+            if (! $document->archived_at) {
+                $document->update(['archived_at' => now()]);
+                AuditEvent::record('document.archived', $document, ['number' => $document->number]);
+            }
+        });
+    }
+
     public function recordPayment(BusinessDocument $original, array $data): Payment
     {
         return DB::transaction(function () use ($original, $data) {

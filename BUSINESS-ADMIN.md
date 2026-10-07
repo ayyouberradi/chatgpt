@@ -80,3 +80,5 @@ After recording the full payment against an issued 50% deposit invoice, use its 
 The client form contains only optional company name, phone, email, client tax identifier, currency and language. Blank currency/language use MAD/French. Clients do not need email or billing address to issue quotes/invoices. Existing contact names and addresses remain stored, while the simplified form hides them. Unnamed clients are identifiable by their client ID in selectors.
 
 Draft quotes and invoices can be permanently deleted using **Workflow → Delete draft**, with confirmation. Issued documents remain protected to preserve numbering, payments and document links.
+
+For confirmed quotes and invoices, **Workflow → Delete** removes the document from admin lists while retaining its number, payment history, linked documents and audit entry. Removed invoices still count towards the quote’s invoiced total to prevent duplicate billing. Draft deletion remains permanent.

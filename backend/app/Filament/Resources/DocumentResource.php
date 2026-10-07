@@ -43,7 +43,7 @@ abstract class DocumentResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->where('type', static::documentType())->with(['client', 'items']);
+        return parent::getEloquentQuery()->where('type', static::documentType())->whereNull('archived_at')->with(['client', 'items']);
     }
 
     public static function canDelete(Model $record): bool
@@ -146,6 +146,7 @@ abstract class DocumentResource extends Resource
             Action::make('accept')->label('Mark accepted')->color('success')->requiresConfirmation()->modalDescription('Record the client’s acceptance. A draft will be issued and numbered first, and its contents will be locked.')->visible(fn ($record) => $record->type === 'quote' && in_array($record->status, ['draft', 'issued']))->action(fn ($record) => static::perform(fn () => app(DocumentWorkflow::class)->decideQuote($record, true))),
             Action::make('decline')->label('Mark rejected')->color('danger')->requiresConfirmation()->modalDescription('Record the client’s rejection. A draft will be issued and numbered first, and its contents will be locked.')->visible(fn ($record) => $record->type === 'quote' && in_array($record->status, ['draft', 'issued']))->action(fn ($record) => static::perform(fn () => app(DocumentWorkflow::class)->decideQuote($record, false))),
             ActionGroup::make([
+                Action::make('delete_confirmed')->label('Delete')->color('danger')->requiresConfirmation()->modalDescription('Remove this confirmed document from the admin lists? Its number, payments and links will be retained for your financial history.')->visible(fn ($record) => in_array($record->type, ['quote', 'invoice'], true) && $record->issued_at)->action(fn ($record) => static::perform(fn () => app(DocumentWorkflow::class)->archive($record))),
                 DeleteAction::make()->label('Delete draft')->requiresConfirmation()->modalDescription('Permanently delete this draft and its line items? Issued documents cannot be deleted.')->visible(fn ($record) => static::canDelete($record)),
                 Action::make('issue')->label('Issue')->color('success')->requiresConfirmation()->modalDescription('This assigns a permanent number and locks the document. Check the preview PDF and totals first.')->visible(fn ($record) => ! $record->issued_at)->action(fn ($record) => static::perform(fn () => app(DocumentWorkflow::class)->issue($record))),
                 Action::make('revision')->label('New quote revision')->visible(fn ($record) => $record->type === 'quote')->requiresConfirmation()->action(fn ($record) => static::perform(fn () => app(DocumentWorkflow::class)->duplicate($record, 'quote'))),

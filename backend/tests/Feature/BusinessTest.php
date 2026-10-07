@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Resources\InvoiceResource;
 use App\Filament\Resources\Pages\ManageClients;
 use App\Filament\Resources\Pages\ManageInvoices;
 use App\Filament\Resources\Pages\ManageQuotes;
@@ -198,6 +199,27 @@ class BusinessTest extends TestCase
         $issued = app(DocumentWorkflow::class)->issue($this->draft());
         $this->assertFalse(QuoteResource::canDelete($issued));
         $this->rejected(fn () => $issued->delete());
+    }
+
+    public function test_confirmed_document_deletion_hides_rows_and_preserves_payments_and_links(): void
+    {
+        Filament::setCurrentPanel(Filament::getPanel('manage'));
+        Filament::bootCurrentPanel();
+        $w = app(DocumentWorkflow::class);
+        $quote = $w->accept($w->issue($this->draft()));
+        $deposit = $w->issue($w->duplicate($quote, 'invoice', 50));
+        $w->recordPayment($deposit, ['amount' => '600.00', 'paid_on' => today()->toDateString(), 'method' => 'bank_transfer']);
+        $final = $w->issue($w->finalInvoice($deposit));
+        Livewire::test(ManageInvoices::class)->callTableAction('delete_confirmed', $deposit)->assertHasNoTableActionErrors();
+        Livewire::test(ManageQuotes::class)->callTableAction('delete_confirmed', $quote)->assertHasNoTableActionErrors();
+        $this->assertNotNull($deposit->fresh()->archived_at);
+        $this->assertFalse(InvoiceResource::getEloquentQuery()->whereKey($deposit->id)->exists());
+        $this->assertFalse(QuoteResource::getEloquentQuery()->whereKey($quote->id)->exists());
+        $this->assertSame(60000, $deposit->fresh()->paidAmount());
+        $this->assertSame($deposit->id, $final->fresh()->depositInvoice->id);
+        $this->assertSame($quote->id, $final->fresh()->source->id);
+        $this->rejected(fn () => $w->issue($w->duplicate($quote->fresh(), 'invoice', 100)));
+        $this->get(route('business.pdf', $final))->assertOk();
     }
 
     public function test_exact_money_quantity_discount_and_tax(): void

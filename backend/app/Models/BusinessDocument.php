@@ -14,7 +14,7 @@ class BusinessDocument extends Model
 
     protected function casts(): array
     {
-        return ['payment_percent' => 'integer', 'issuer_snapshot' => 'array', 'client_snapshot' => 'array', 'issued_at' => 'datetime', 'accepted_at' => 'datetime', 'signed_at' => 'datetime', 'due_on' => 'date', 'discount_amount' => 'integer', 'tax_basis_points' => 'integer', 'subtotal_amount' => 'integer', 'tax_amount' => 'integer', 'total_amount' => 'integer'];
+        return ['archived_at' => 'datetime', 'payment_percent' => 'integer', 'issuer_snapshot' => 'array', 'client_snapshot' => 'array', 'issued_at' => 'datetime', 'accepted_at' => 'datetime', 'signed_at' => 'datetime', 'due_on' => 'date', 'discount_amount' => 'integer', 'tax_basis_points' => 'integer', 'subtotal_amount' => 'integer', 'tax_amount' => 'integer', 'total_amount' => 'integer'];
     }
 
     protected static function booted(): void
