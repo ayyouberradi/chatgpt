@@ -1,0 +1,59 @@
+name: Reset Hostinger business records
+'on':
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: 'Explicit reset scope: RESET BUSINESS RECORDS'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: hostinger-deployment
+  cancel-in-progress: false
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SSH_HOST: 92.113.18.197
+      SSH_PORT: '65002'
+      SSH_USER: u808335549
+      DEPLOY_ROOT: /home/u808335549/domains/salmon-turtle-767162.hostingersite.com
+    steps:
+    - uses: actions/checkout@v4
+    - name: Configure authenticated SSH
+      env:
+        DEPLOY_SSH_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+        DEPLOY_KNOWN_HOSTS: ${{ secrets.HOSTINGER_KNOWN_HOSTS }}
+      run: "test -n \"$DEPLOY_SSH_KEY\" || { echo 'Set HOSTINGER_SSH_KEY in repository\
+        \ secrets.'; exit 1; }\ntest -n \"$DEPLOY_KNOWN_HOSTS\" || { echo 'Set HOSTINGER_KNOWN_HOSTS\
+        \ in repository secrets.'; exit 1; }\nmkdir -p \"$RUNNER_TEMP/hostinger-ssh\"\
+        \nchmod 700 \"$RUNNER_TEMP/hostinger-ssh\"\nprintf '%s\\n' \"$DEPLOY_SSH_KEY\"\
+        \ | tr -d '\\r' > \"$RUNNER_TEMP/hostinger-ssh/key\"\nprintf '%s\\n' \"$DEPLOY_KNOWN_HOSTS\"\
+        \ | tr -d '\\r' > \"$RUNNER_TEMP/hostinger-ssh/known_hosts\"\nchmod 600 \"\
+        $RUNNER_TEMP/hostinger-ssh/key\" \"$RUNNER_TEMP/hostinger-ssh/known_hosts\"\
+        \nif ! ssh-keygen -y -P '' -f \"$RUNNER_TEMP/hostinger-ssh/key\" >/dev/null\
+        \ 2>&1; then\n  echo 'HOSTINGER_SSH_KEY must contain the complete private\
+        \ key with no passphrase. Copy ~/.ssh/hostinger_github directly into the GitHub\
+        \ secret; do not use the .pub file.'\n  exit 1\nfi\nif ! ssh-keygen -F \"\
+        [$SSH_HOST]:$SSH_PORT\" -f \"$RUNNER_TEMP/hostinger-ssh/known_hosts\" >/dev/null;\
+        \ then\n  echo 'HOSTINGER_KNOWN_HOSTS has no matching server entry. Copy the\
+        \ trusted records from your local known_hosts file.'\n  exit 1\nfi\n"
+    - name: Back up and reset business records
+      env:
+        RESET_SCOPE: ${{ inputs.scope }}
+      run: 'test "$RESET_SCOPE" = ''RESET BUSINESS RECORDS''
+
+        ssh -i "$RUNNER_TEMP/hostinger-ssh/key" -p "$SSH_PORT" -o BatchMode=yes -o
+        StrictHostKeyChecking=yes -o "UserKnownHostsFile=$RUNNER_TEMP/hostinger-ssh/known_hosts"
+        "$SSH_USER@$SSH_HOST" "bash -s -- ''RESET BUSINESS RECORDS''" < scripts/hostinger-reset-business.sh'
+    - name: Verify live availability
+      run: 'curl --fail --silent --show-error --retry 3 https://salmon-turtle-767162.hostingersite.com/up
+        > /dev/null
+
+        curl --fail --silent --show-error --retry 3 https://salmon-turtle-767162.hostingersite.com/manage/login
+        > /dev/null'
+    - name: Remove runner SSH material
+      if: always()
+      run: rm -rf "$RUNNER_TEMP/hostinger-ssh"
