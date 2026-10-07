@@ -14,6 +14,7 @@ interface MediaFile {
 export default function MediaAdmin() {
   const [files, setFiles] = useState<MediaFile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -22,20 +23,20 @@ export default function MediaAdmin() {
   const fetchFiles = async () => {
     try {
       setLoading(true);
-      const data = await request('/media');
-      if (data) {
-        const fileList: MediaFile[] = data.map((file: MediaFile) => ({
-          ...file,
-          type: typeof file.type === 'string' && file.type.length > 0
-            ? file.type
-            : 'application/octet-stream',
-        }));
-        // Sort by created_at descending
-        fileList.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        setFiles(fileList);
-      }
+      setError(null);
+      const data = await request<unknown>('/media', { cache: 'no-store' });
+      if (!Array.isArray(data)) throw new Error('The media library returned an invalid response. Please retry.');
+      const fileList: MediaFile[] = data.filter((file): file is MediaFile =>
+        file !== null && typeof file === 'object' && typeof file.name === 'string' && typeof file.url === 'string'
+      ).map(file => ({
+        ...file,
+        type: typeof file.type === 'string' && file.type.trim() ? file.type.trim().toLowerCase() : 'application/octet-stream',
+        size: typeof file.size === 'number' && Number.isFinite(file.size) && file.size >= 0 ? file.size : 0,
+      }));
+      fileList.sort((a, b) => (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0));
+      setFiles(fileList);
     } catch (err) {
-      console.error('Unexpected error fetching files:', err);
+      setError(err instanceof Error ? err.message : 'Unable to load the media library. Please retry.');
     } finally {
       setLoading(false);
     }
@@ -156,11 +157,12 @@ export default function MediaAdmin() {
         <p className="text-secondary text-sm">or click the Upload Media button above</p>
       </div>
 
+      {error && <div role="alert" className="card p-6 mb-6"><p>{error}</p><button className="btn-primary mt-3" onClick={fetchFiles}>Retry loading media</button></div>}
       {loading ? (
         <div className="flex justify-center py-20">
           <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
-      ) : files.length === 0 ? (
+      ) : error ? null : files.length === 0 ? (
         <div className="card p-12 text-center">
           <FileImage className="w-16 h-16 mx-auto mb-4 text-gray-500" />
           <h3 className="text-xl font-medium mb-2">No media files yet</h3>
@@ -178,10 +180,12 @@ export default function MediaAdmin() {
                 className="card overflow-hidden group"
               >
                 <div className="aspect-square bg-gray-800 relative">
-                  {file.type.startsWith('video/') ? (
+                  {typeof file.type === 'string' && file.type.startsWith('video/') ? (
                     <video src={file.url} className="w-full h-full object-cover" />
-                  ) : (
+                  ) : typeof file.type === 'string' && file.type.startsWith('image/') ? (
                     <img src={file.url} alt={file.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center" aria-label="Preview unavailable"><FileImage className="w-12 h-12 text-gray-400" /></div>
                   )}
                   
                   {/* Overlay actions */}

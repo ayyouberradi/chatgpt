@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Storage;
 class MediaController extends Controller {
  public function index() {
   $disk = Storage::disk('public');
-  return response()->json(array_map(fn ($path) => ['name' => basename($path), 'url' => '/storage/'.$path, 'size' => $disk->size($path), 'type' => $this->mediaType($disk, $path), 'created_at' => date(DATE_ATOM, $disk->lastModified($path))], $disk->files('media')));
+  return response()->json(array_map(fn ($path) => ['name' => basename($path), 'url' => '/storage/'.$path, 'size' => $disk->size($path), 'type' => $this->mediaType($disk, $path), 'created_at' => date(DATE_ATOM, $disk->lastModified($path))], $disk->files('media')))->header('Cache-Control', 'private, no-store, max-age=0');
  }
  private function mediaType(\Illuminate\Filesystem\FilesystemAdapter $disk, string $path): string {
   $type = $disk->mimeType($path);

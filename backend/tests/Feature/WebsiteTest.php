@@ -65,7 +65,7 @@ class WebsiteTest extends TestCase {
    $disk->shouldReceive('lastModified')->once()->with($path)->andReturn(1700000000);
   }
   Storage::shouldReceive('disk')->once()->with('public')->andReturn($disk);
-  $this->getJson('/api/media')->assertOk()
+  $this->getJson('/api/media')->assertOk()->assertHeader('Cache-Control', 'max-age=0, no-store, private')
    ->assertJsonPath('0.type', 'image/jpeg')
    ->assertJsonPath('1.type', 'video/mp4')
    ->assertJsonPath('2.type', 'application/octet-stream');

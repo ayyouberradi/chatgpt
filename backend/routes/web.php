@@ -27,5 +27,8 @@ Route::get('/manage/documents/{document}/pdf', BusinessPdfController::class)->mi
 Route::get('/{path?}', function () {
     abort_unless(is_file(public_path('site/index.html')), 503, 'Build the frontend first.');
 
-    return response()->file(public_path('site/index.html'));
+    $response = response()->file(public_path('site/index.html'));
+    $response->headers->set('Cache-Control', 'private, no-store, max-age=0');
+
+    return $response;
 })->where('path', '^(?!storage/|site/|manage(?:/|$)|livewire(?:/|$)).*');
