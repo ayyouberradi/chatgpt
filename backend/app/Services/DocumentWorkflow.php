@@ -122,6 +122,21 @@ final class DocumentWorkflow
         }, 5);
     }
 
+    public function decideQuote(BusinessDocument $original, bool $accepted): BusinessDocument
+    {
+        return DB::transaction(function () use ($original, $accepted) {
+            $document = BusinessDocument::lockForUpdate()->findOrFail($original->id);
+            if ($document->type !== 'quote') {
+                $this->fail('Only quotes can be accepted or rejected.');
+            }
+            if ($document->status === 'draft') {
+                $document = $this->issue($document);
+            }
+
+            return $accepted ? $this->accept($document) : $this->decline($document);
+        }, 5);
+    }
+
     public function accept(BusinessDocument $original): BusinessDocument
     {
         return DB::transaction(function () use ($original) {

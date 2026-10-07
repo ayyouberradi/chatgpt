@@ -93,12 +93,26 @@ class BusinessTest extends TestCase
         $this->travelBack();
     }
 
+    public function test_draft_quote_decisions_issue_number_and_render_heading(): void
+    {
+        $workflow = app(DocumentWorkflow::class);
+        $accepted = $workflow->decideQuote($this->draft(), true);
+        $this->assertSame('accepted', $accepted->status);
+        $this->assertNotNull($accepted->number);
+        $html = view('business.document', ['document' => $accepted->load('client', 'items', 'source'), 'issuer' => $accepted->issuer_snapshot, 'client' => $accepted->client_snapshot, 'totals' => $accepted->totals(), 'pdfTitle' => $accepted->pdfTitle()])->render();
+        $this->assertStringContainsString('<h1>Devis N°'.$accepted->number.'</h1>', $html);
+        $this->assertStringNotContainsString('BROUILLON', $html);
+        $rejected = $workflow->decideQuote($this->draft(), false);
+        $this->assertSame('declined', $rejected->status);
+        $this->assertNotNull($rejected->number);
+    }
+
     public function test_quote_pdf_hides_contact_subject_and_draft_numbers_but_keeps_validity(): void
     {
         $draft = $this->draft('quote', ['title' => 'Website title', 'due_on' => '2026-10-11']);
         $draft->client->update(['name' => 'Mona', 'company' => 'BE CUTE SPA']);
         $html = view('business.document', ['document' => $draft->fresh()->load('client', 'items', 'source'), 'issuer' => BusinessSetting::current()->toArray(), 'client' => $draft->client->fresh()->toArray(), 'totals' => $draft->totals(), 'pdfTitle' => $draft->pdfTitle()])->render();
-        $this->assertStringContainsString('<h1>DEVIS</h1>', $html);
+        $this->assertStringContainsString('<h1>Devis</h1>', $html);
         $this->assertStringContainsString('BE CUTE SPA', $html);
         $this->assertStringContainsString('Valable jusqu’au 11/10/2026', $html);
         $this->assertStringNotContainsString('Mona', $html);

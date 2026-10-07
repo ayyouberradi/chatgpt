@@ -69,7 +69,7 @@ table.lines { width: 100%; border-collapse: collapse; }
 </td></tr></table>
 </div>
 @if(!$document->issued_at)<div class="draft">{{ $fr ? 'BROUILLON — document non émis' : 'DRAFT — not issued' }}</div>@endif
-<h1>{{ $document->type === 'quote' ? ($fr ? 'DEVIS' : 'QUOTE') : ($fr ? 'FACTURE' : 'INVOICE') }}</h1>
+<h1>{{ $document->type === 'quote' ? ($fr ? 'Devis' : 'Quote') : ($fr ? 'Facture' : 'Invoice') }}@if($document->number) N°{{ $document->number }}@endif</h1>
 <table class="metadata"><tr><td>@if($document->number)N°{{ $document->number }}@endif</td><td class="date">{{ $fr ? 'FAIT LE' : 'DATE' }}<br>{{ $date->format('d/m/Y') }}</td></tr></table>
 <div class="client"><strong>{{ $clientName }}</strong>
 @if(!empty($client['tax_identifier']))<div><strong>{{ $fr ? 'ICE / Identifiant fiscal' : 'Business / tax ID' }} :</strong> {{ $client['tax_identifier'] }}</div>@endif
