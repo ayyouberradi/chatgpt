@@ -21,7 +21,7 @@ class BusinessOverview extends StatsOverviewWidget
             Stat::make('Draft quotes', BusinessDocument::where('type', 'quote')->where('status', 'draft')->count())->url('/manage/quotes')];
         $balances = [];
         $overdue = 0;
-        $invoices = BusinessDocument::where('type', 'invoice')->whereNotNull('issued_at')->withSum(['payments as received_amount' => fn ($q) => $q->whereNull('voided_at')], 'amount')->get();
+        $invoices = BusinessDocument::where('type', 'invoice')->where('status', '!=', 'cancelled')->whereNotNull('issued_at')->withSum(['payments as received_amount' => fn ($q) => $q->whereNull('voided_at')], 'amount')->get();
         $credits = BusinessDocument::where('type', 'credit_note')->whereNotNull('issued_at')->selectRaw('source_document_id, SUM(total_amount) AS credited_amount')->groupBy('source_document_id')->pluck('credited_amount', 'source_document_id');
         foreach ($invoices as $invoice) {
             $balance = max(0, $invoice->total_amount - (int) $invoice->received_amount - (int) ($credits[$invoice->id] ?? 0));
