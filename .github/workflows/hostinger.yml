@@ -69,9 +69,27 @@ jobs:
         run: |
           remote_release="$DEPLOY_ROOT/.github-release-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           ssh_options=(-i "$RUNNER_TEMP/hostinger-ssh/key" -p "$SSH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$RUNNER_TEMP/hostinger-ssh/known_hosts")
-          ssh "${ssh_options[@]}" "$SSH_USER@$SSH_HOST" "mkdir -p '$remote_release'"
-          rsync -az -e "ssh -i $RUNNER_TEMP/hostinger-ssh/key -p $SSH_PORT -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$RUNNER_TEMP/hostinger-ssh/known_hosts" release/ "$SSH_USER@$SSH_HOST:$remote_release/"
-          ssh "${ssh_options[@]}" "$SSH_USER@$SSH_HOST" "bash -s -- '$remote_release'" < scripts/hostinger-update.sh
+          run_stage() {
+            local stage="$1"
+            shift
+            if "$@" > "$RUNNER_TEMP/deploy-stage.log" 2>&1; then
+              cat "$RUNNER_TEMP/deploy-stage.log"
+            else
+              cat "$RUNNER_TEMP/deploy-stage.log"
+              python3 - "$stage" "$RUNNER_TEMP/deploy-stage.log" <<'PYCODE'
+          import pathlib, sys
+          lines = pathlib.Path(sys.argv[2]).read_text(errors='replace').splitlines()
+          errors = [line for line in lines if any(word in line.lower() for word in ('quota', 'no space', 'permission denied', 'rsync:', 'rsync error', 'read-only', 'failed to', 'cannot create'))]
+          detail = ' | '.join(errors[-4:])[:1500] or 'See the deployment stage log.'
+          message = (sys.argv[1] + ': ' + detail).replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print('::error::' + message)
+          PYCODE
+              return 1
+            fi
+          }
+          run_stage "Prepare staging storage" ssh "${ssh_options[@]}" "$SSH_USER@$SSH_HOST" "bash -s -- '$DEPLOY_ROOT' '$remote_release'" < scripts/hostinger-staging.sh
+          run_stage "Upload release" rsync -az -e "ssh -i $RUNNER_TEMP/hostinger-ssh/key -p $SSH_PORT -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$RUNNER_TEMP/hostinger-ssh/known_hosts" release/ "$SSH_USER@$SSH_HOST:$remote_release/"
+          run_stage "Apply release" ssh "${ssh_options[@]}" "$SSH_USER@$SSH_HOST" "bash -s -- '$remote_release'" < scripts/hostinger-update.sh
       - name: Check live responses
         run: |
           curl --fail --silent --show-error --retry 3 https://salmon-turtle-767162.hostingersite.com/manage/login > /dev/null
