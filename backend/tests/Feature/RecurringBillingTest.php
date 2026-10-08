@@ -53,6 +53,27 @@ class RecurringBillingTest extends TestCase
         return app(RecurringBilling::class)->create(['source_document_id' => $this->quote()->id, 'next_issue_on' => '2026-01-31', 'payment_due_days' => 7]);
     }
 
+    public function test_past_first_date_catches_up_and_skips_existing_historical_invoice(): void
+    {
+        $q = $this->quote();
+        $w = app(DocumentWorkflow::class);
+        $manual = $w->duplicate($q, 'invoice');
+        $manual->update(['document_date' => '2025-12-10']);
+        $manual = $w->issue($manual);
+        Filament::setCurrentPanel(Filament::getPanel('manage'));
+        Livewire::test(ManageBillingSchedules::class)->callAction('create', ['source_document_id' => $q->id, 'next_issue_on' => '2025-11-30', 'payment_due_days' => 7])->assertHasNoActionErrors();
+        $s = BillingSchedule::sole();
+        $r = app(RecurringBilling::class);
+        $result = $r->run();
+        $this->assertSame(0, $result['errors'], (string) $s->fresh()->last_error);
+        $this->assertSame(2, $result['issued']);
+        $this->assertSame(3, BusinessDocument::where('type', 'invoice')->whereNotNull('issued_at')->count());
+        $this->assertSame(['2025-11-30', '2026-01-30'], $s->invoices()->orderBy('period_start')->get()->map(fn ($i) => $i->issued_at->setTimezone('Africa/Casablanca')->toDateString())->all());
+        $this->assertSame('2026-02-28', $s->fresh()->next_issue_on->toDateString());
+        $this->assertSame(0, $r->run()['issued']);
+        $this->assertSame('2025-12-10', $manual->fresh()->document_date->toDateString());
+    }
+
     public function test_auto_issue_exact_amounts_idempotency_and_short_months(): void
     {
         $s = $this->schedule();
@@ -136,6 +157,6 @@ class RecurringBillingTest extends TestCase
         Livewire::test(ManageBillingSchedules::class)->callAction('create', data: ['source_document_id' => $quote->id, 'next_issue_on' => '2026-01-31', 'payment_due_days' => 7])->assertHasNoActionErrors();
         $this->assertSame(1, BillingSchedule::count());
         $this->expectException(ValidationException::class);
-        app(DocumentWorkflow::class)->issue(app(DocumentWorkflow::class)->duplicate($quote,'invoice'));
+        app(DocumentWorkflow::class)->issue(app(DocumentWorkflow::class)->duplicate($quote, 'invoice'));
     }
 }

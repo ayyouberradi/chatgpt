@@ -18,16 +18,12 @@ final class RecurringBilling
 {
     public function create(array $data): BillingSchedule
     {
-        validator($data, ['source_document_id' => 'required|integer', 'next_issue_on' => 'required|date|after_or_equal:'.now('Africa/Casablanca')->toDateString(), 'payment_due_days' => 'required|integer|min:0|max:60', 'end_on' => 'nullable|date|after_or_equal:next_issue_on'])->validate();
+        validator($data, ['source_document_id' => 'required|integer', 'next_issue_on' => 'required|date', 'payment_due_days' => 'required|integer|min:0|max:60', 'end_on' => 'nullable|date|after_or_equal:next_issue_on'])->validate();
 
         return DB::transaction(function () use ($data) {
             $quote = BusinessDocument::lockForUpdate()->findOrFail($data['source_document_id']);
             if ($quote->type !== 'quote' || $quote->status !== 'accepted' || ! $quote->issued_at || $quote->archived_at || $quote->billing_period !== 'monthly' || BillingSchedule::where('source_document_id', $quote->id)->exists()) {
                 throw ValidationException::withMessages(['source_document_id' => 'Select an accepted monthly quote without an existing billing schedule.']);
-            }
-            $lastManual = BusinessDocument::where('source_document_id', $quote->id)->where('type', 'invoice')->whereNotNull('issued_at')->whereNull('billing_schedule_id')->where('status', '!=', 'cancelled')->latest('issued_at')->first();
-            if ($lastManual && Carbon::parse($data['next_issue_on'])->format('Y-m') <= $lastManual->issued_at->copy()->setTimezone('Africa/Casablanca')->format('Y-m')) {
-                throw ValidationException::withMessages(['next_issue_on' => 'This quote has already been invoiced manually. Start automatic billing in a later unbilled month.']);
             }
             $schedule = BillingSchedule::create(collect($data)->only(['source_document_id', 'next_issue_on', 'payment_due_days', 'end_on'])->all() + ['billing_day' => Carbon::parse($data['next_issue_on'])->day]);
             AuditEvent::record('billing.schedule_created', $schedule);
@@ -82,6 +78,7 @@ final class RecurringBilling
                 $issued += DB::transaction(function () use ($id, $today) {
                     $s = BillingSchedule::lockForUpdate()->findOrFail($id);
                     $count = 0;
+                    $created = 0;
                     if ($s->status !== 'active') {
                         return 0;
                     }
@@ -96,11 +93,17 @@ final class RecurringBilling
                         }
                         $start = $s->next_issue_on->copy();
                         $next = $this->nextDate($start, $s->billing_day);
-                        if (! $s->invoices()->whereDate('period_start', $start)->exists()) {
+                        $manualTotal = BusinessDocument::where('source_document_id', $quote->id)->where('type', 'invoice')->whereNull('billing_schedule_id')->whereNotNull('issued_at')->where('status', '!=', 'cancelled')->where(function ($q) use ($start) {
+                            $q->whereBetween('period_start', [$start->copy()->startOfMonth()->toDateString(), $start->copy()->endOfMonth()->toDateString()])->orWhere(fn ($legacy) => $legacy->whereNull('period_start')->whereBetween('issued_at', [Carbon::parse($start->format('Y-m-01'), 'Africa/Casablanca')->startOfDay()->utc(), Carbon::parse($start->format('Y-m-01'), 'Africa/Casablanca')->endOfMonth()->endOfDay()->utc()]));
+                        })->sum('total_amount');
+                        if (! $s->invoices()->whereDate('period_start', $start)->exists() && $manualTotal < $quote->total_amount) {
+
+                            $s->save();
                             $w = app(DocumentWorkflow::class);
                             $invoice = $w->duplicate($quote, 'invoice', 100);
-                            $invoice->update(['billing_schedule_id' => $s->id, 'period_start' => $start, 'period_end' => $next->copy()->subDay(), 'due_on' => $start->copy()->addDays($s->payment_due_days)]);
+                            $invoice->update(['document_date' => $start->toDateString(), 'billing_schedule_id' => $s->id, 'period_start' => $start, 'period_end' => $next->copy()->subDay(), 'due_on' => $start->copy()->addDays($s->payment_due_days)]);
                             $invoice = $w->issue($invoice);
+                            $created++;
                             $this->notify('Monthly invoice issued', 'Invoice N°'.$invoice->number.' · '.$invoice->display_total.' · due '.$invoice->due_on->format('d/m/Y'));
                         }
                         $count++;
@@ -109,7 +112,7 @@ final class RecurringBilling
                     $s->last_error = null;
                     $s->save();
 
-                    return $count;
+                    return $created;
                 }, 5);
             } catch (\Throwable $e) {
                 $errors++;
@@ -139,6 +142,6 @@ final class RecurringBilling
             }, 5);
         }
 
-        return compact('issued','errors','reminders');
+        return compact('issued', 'errors', 'reminders');
     }
 }
