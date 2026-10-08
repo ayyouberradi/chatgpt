@@ -3,7 +3,7 @@
         @if(\App\Models\BusinessSetting::current()->tax_mode==='not_configured')
             <p>Start by completing your business identity and tax settings. Review service prices and approve complete contract terms before issuing documents.</p>
         @else
-            <p>Review enquiries, prepare a scoped quote, record acceptance, then create the contract and invoice. Record payments when received.</p>
+            <p>Review enquiries, prepare a scoped quote, record acceptance, then create an invoice and an optional service-specific contract. Record payments when received.</p>
         @endif
         <br>
         <x-filament::button tag="a" href="/manage/settings" color="gray">Business settings</x-filament::button>

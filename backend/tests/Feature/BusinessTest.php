@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Filament\Resources\InvoiceResource;
 use App\Filament\Resources\Pages\ManageClients;
+use App\Filament\Resources\Pages\ManageContracts;
 use App\Filament\Resources\Pages\ManageInvoices;
 use App\Filament\Resources\Pages\ManageQuotes;
 use App\Filament\Resources\QuoteResource;
@@ -11,9 +12,11 @@ use App\Filament\Widgets\BusinessOverview;
 use App\Models\BusinessClient;
 use App\Models\BusinessDocument;
 use App\Models\BusinessSetting;
+use App\Models\CatalogueService;
 use App\Models\ContractTemplate;
 use App\Models\Lead;
 use App\Models\User;
+use App\Services\ContractTerms;
 use App\Services\DocumentWorkflow;
 use App\Support\Money;
 use Carbon\Carbon;
@@ -57,6 +60,77 @@ class BusinessTest extends TestCase
         } catch (ValidationException $e) {
             $this->assertNotEmpty($e->errors());
         }
+    }
+
+    public function test_service_contracts_are_scoped_editable_and_optional(): void
+    {
+        $w = app(DocumentWorkflow::class);
+        $quote = $this->draft();
+        $quote->items()->create(['description' => 'SEO', 'quantity' => '1.000', 'unit_price' => '500.00', 'billing_period' => 'one_time', 'scope' => 'Monthly report']);
+        $quote = $w->accept($w->issue($quote));
+        $invoice = $w->issue($w->duplicate($quote, 'invoice'));
+        $this->assertNotNull($invoice->issued_at);
+        $this->assertSame(0, BusinessDocument::where('type', 'contract')->count());
+        $contract = $w->duplicate($quote, 'contract');
+        $this->assertStringContainsString('SITE WEB', $contract->terms);
+        $this->assertStringContainsString('RÉFÉRENCEMENT', $contract->terms);
+        $this->assertStringContainsString('Five pages', $contract->terms);
+        $this->assertStringNotContainsString('MARKETING DIGITAL', $contract->terms);
+        $this->assertStringNotContainsString('PHOTOGRAPHIE / VIDÉO', $contract->terms);
+        $this->rejected(fn () => $w->issue($contract));
+        $contract->update(['terms' => $contract->terms."\nCustom agreed handover", 'contract_start_on' => '2026-10-10', 'contract_end_on' => '2026-10-30']);
+        $contract->update(['contract_terms_reviewed' => true]);
+        $contract = $w->issue($contract);
+        $this->assertSame($quote->total_amount, $contract->total_amount);
+        $this->rejected(fn () => $contract->update(['contract_payment_plan' => 'full']));
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        $this->get('/manage/documents/'.$contract->id.'/pdf')->assertOk()->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_contract_review_resets_on_changes_and_copy_cannot_be_altered(): void
+    {
+        $w = app(DocumentWorkflow::class);
+        $quote = $w->accept($w->issue($this->draft()));
+        $contract = $w->duplicate($quote, 'contract');
+        $contract->update(['contract_terms_reviewed' => true]);
+        $contract->update(['terms' => $contract->terms."\nChanged"]);
+        $this->assertFalse($contract->fresh()->contract_terms_reviewed);
+        $contract->items->first()->update(['unit_price' => '1200.00']);
+        $contract->update(['contract_terms_reviewed' => true]);
+        $this->rejected(fn () => $w->issue($contract));
+    }
+
+    public function test_contract_categories_allow_explicit_custom_override_and_english_terms(): void
+    {
+        $quote = $this->draft('quote', ['language' => 'en']);
+        $service = CatalogueService::create(['name' => 'Custom package', 'contract_category' => 'photography', 'unit_amount' => 100000, 'currency' => 'MAD', 'billing_period' => 'one_time']);
+        $quote->items->first()->update(['catalogue_service_id' => $service->id]);
+        $terms = app(ContractTerms::class)->compose($quote);
+        $this->assertStringContainsString('PHOTOGRAPHY / VIDEO', $terms);
+        $this->assertStringNotContainsString('WEBSITE DEVELOPMENT', $terms);
+        $this->assertStringNotContainsString('SEO\n', $terms);
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        $this->get('/manage/contracts')->assertOk();
+    }
+
+    public function test_contract_admin_generates_edits_reviews_and_issues_from_quote(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        Filament::setCurrentPanel(Filament::getPanel('manage'));
+        $w = app(DocumentWorkflow::class);
+        $quote = $w->accept($w->issue($this->draft()));
+        Livewire::test(ManageContracts::class)->callAction('create', ['quote_id' => $quote->id])->assertHasNoActionErrors();
+        $contract = BusinessDocument::where('type', 'contract')->sole();
+        $this->assertNull($contract->due_on);
+        Livewire::test(ManageContracts::class)->callTableAction('edit', $contract, ['title' => 'Website agreement', 'terms' => $contract->terms."\nHandover within 30 days", 'contract_start_on' => '2026-10-10', 'contract_end_on' => '2026-11-09', 'contract_payment_plan' => 'full'])->assertHasNoTableActionErrors();
+        $this->assertSame('full', $contract->fresh()->contract_payment_plan);
+        Livewire::test(ManageContracts::class)->callTableAction('issue_contract', $contract, ['reviewed' => true])->assertHasNoTableActionErrors();
+        $contract->refresh();
+        $this->assertNotNull($contract->issued_at);
+        $html = view('business.document', ['pdfTitle' => $contract->pdfTitle(), 'document' => $contract->load('items', 'source', 'client'), 'issuer' => $contract->issuer_snapshot, 'client' => $contract->client_snapshot, 'totals' => $contract->totals()])->render();
+        $this->assertStringContainsString('10/10/2026', $html);
+        $this->assertStringContainsString('Paiement intégral (100%) avant', $html);
+        $this->assertStringNotContainsString('MARKETING DIGITAL', $html);
     }
 
     public function test_invoice_pdf_hides_extra_labels_and_places_due_date_under_heading(): void
@@ -356,6 +430,7 @@ class BusinessTest extends TestCase
         $t = ContractTemplate::first();
         $t->update(['is_approved' => true]);
         $contract->update(['contract_template_id' => $t->id, 'terms' => $t->body]);
+        $contract->update(['contract_terms_reviewed' => true]);
         $contract = $w->issue($contract);
         $w->markSigned($contract);
         $this->assertSame('signed', $contract->fresh()->status);

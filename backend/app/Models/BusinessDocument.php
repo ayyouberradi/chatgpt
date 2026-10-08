@@ -14,13 +14,16 @@ class BusinessDocument extends Model
 
     protected function casts(): array
     {
-        return ['period_start'=>'date', 'period_end'=>'date', 'archived_at' => 'datetime', 'payment_percent' => 'integer', 'issuer_snapshot' => 'array', 'client_snapshot' => 'array', 'issued_at' => 'datetime', 'accepted_at' => 'datetime', 'signed_at' => 'datetime', 'due_on' => 'date', 'discount_amount' => 'integer', 'tax_basis_points' => 'integer', 'subtotal_amount' => 'integer', 'tax_amount' => 'integer', 'total_amount' => 'integer'];
+        return ['contract_generated' => 'boolean', 'contract_terms_reviewed' => 'boolean', 'contract_start_on' => 'date', 'contract_end_on' => 'date', 'period_start' => 'date', 'period_end' => 'date', 'archived_at' => 'datetime', 'payment_percent' => 'integer', 'issuer_snapshot' => 'array', 'client_snapshot' => 'array', 'issued_at' => 'datetime', 'accepted_at' => 'datetime', 'signed_at' => 'datetime', 'due_on' => 'date', 'discount_amount' => 'integer', 'tax_basis_points' => 'integer', 'subtotal_amount' => 'integer', 'tax_amount' => 'integer', 'total_amount' => 'integer'];
     }
 
     protected static function booted(): void
     {
         static::updating(function (self $document) {
-            if ($document->getOriginal('issued_at') && $document->isDirty(['lead_id', 'billing_schedule_id', 'period_start', 'period_end', 'type', 'deposit_invoice_id', 'payment_percent', 'number', 'business_client_id', 'source_document_id', 'contract_template_id', 'title', 'currency', 'language', 'billing_period', 'due_on', 'discount_amount', 'tax_basis_points', 'subtotal_amount', 'tax_amount', 'total_amount', 'terms', 'notes', 'issuer_snapshot', 'client_snapshot', 'issued_at'])) {
+            if (! $document->getOriginal('issued_at') && $document->isDirty(['terms', 'contract_start_on', 'contract_end_on', 'contract_payment_plan', 'contract_template_id'])) {
+                $document->contract_terms_reviewed = false;
+            }
+            if ($document->getOriginal('issued_at') && $document->isDirty(['contract_generated', 'contract_terms_reviewed', 'contract_start_on', 'contract_end_on', 'contract_payment_plan', 'lead_id', 'billing_schedule_id', 'period_start', 'period_end', 'type', 'deposit_invoice_id', 'payment_percent', 'number', 'business_client_id', 'source_document_id', 'contract_template_id', 'title', 'currency', 'language', 'billing_period', 'due_on', 'discount_amount', 'tax_basis_points', 'subtotal_amount', 'tax_amount', 'total_amount', 'terms', 'notes', 'issuer_snapshot', 'client_snapshot', 'issued_at'])) {
                 throw ValidationException::withMessages(['document' => 'Issued documents cannot be edited. Create a new draft revision.']);
             }
         });
@@ -31,7 +34,10 @@ class BusinessDocument extends Model
         });
     }
 
-    public function lead() { return $this->belongsTo(Lead::class); }
+    public function lead()
+    {
+        return $this->belongsTo(Lead::class);
+    }
 
     public function client()
     {

@@ -7,6 +7,8 @@ use App\Models\BusinessDocument;
 use App\Models\BusinessSetting;
 use App\Models\CatalogueService;
 use App\Models\ContractTemplate;
+use App\Models\Lead;
+use App\Services\ContractTerms;
 use App\Services\DocumentWorkflow;
 use App\Support\Money;
 use Filament\Actions\Action;
@@ -14,6 +16,7 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -31,6 +34,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 abstract class DocumentResource extends Resource
@@ -58,6 +62,23 @@ abstract class DocumentResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
+        if (static::documentType() === 'contract') {
+            return $schema->components([
+                TextInput::make('quote_reference')->label('Accepted quote / client')->afterStateHydrated(fn (TextInput $component, ?BusinessDocument $record) => $component->state($record?->source?->number.' · '.$record?->client?->display_name))->disabled()->dehydrated(false),
+                TextInput::make('title')->label('Project')->required()->maxLength(255),
+                DatePicker::make('contract_start_on')->label('Start date (optional)'),
+                DatePicker::make('contract_end_on')->label('Delivery / end date (optional)')->afterOrEqual('contract_start_on'),
+                Select::make('contract_payment_plan')->label('Payment arrangement')->options(['full' => 'Full payment (100%) before work starts', 'deposit_50' => '50% deposit, 50% on completion', 'monthly' => 'Monthly payment', 'custom' => 'Custom — specify in terms'])->required(fn (?BusinessDocument $record) => (bool) $record?->contract_generated),
+                Select::make('contract_template_id')->label('Additional approved template (optional)')->options(fn (?BusinessDocument $record) => ContractTemplate::where('is_approved', true)->where('language', $record?->language ?? 'fr')->pluck('name', 'id'))->live()->afterStateUpdated(function ($state, Set $set, ?BusinessDocument $record) {
+                    if ($record?->source) {
+                        $set('terms', app(ContractTerms::class)->compose($record->source, ContractTemplate::find($state)?->body));
+                    }
+                })->helperText('Selecting a template rebuilds the terms from the quote. Save your custom edits first.'),
+                Textarea::make('terms')->label('Service-specific contract terms')->required()->rows(22)->columnSpanFull()->helperText('Review scope, dates, usage rights and cancellation arrangements before issuing. Services and prices come from the accepted quote.'),
+                Textarea::make('notes')->label('Internal notes — not printed')->maxLength(2000)->columnSpanFull(),
+            ])->columns(2);
+        }
+
         if (static::documentType() === 'invoice') {
             return $schema->components([
                 TextInput::make('quote_reference')->label('Linked quote')->afterStateHydrated(fn (TextInput $component, ?BusinessDocument $record) => $component->state($record?->source?->number))->disabled()->dehydrated(false),
@@ -77,7 +98,7 @@ abstract class DocumentResource extends Resource
                         $set('language', $c->language);
                     }
                 }),
-                Select::make('lead_id')->label('Linked inquiry (optional)')->options(fn (Get $get) => \App\Models\Lead::where('business_client_id', $get('business_client_id'))->get()->mapWithKeys(fn ($lead) => [$lead->id => 'REQ-'.str_pad((string) $lead->id, 6, '0', STR_PAD_LEFT).' · '.$lead->service.' · '.$lead->name]))->searchable()->visible(static::documentType() === 'quote')->helperText('Connect this quote to its sales pipeline inquiry.'),
+                Select::make('lead_id')->label('Linked inquiry (optional)')->options(fn (Get $get) => Lead::where('business_client_id', $get('business_client_id'))->get()->mapWithKeys(fn ($lead) => [$lead->id => 'REQ-'.str_pad((string) $lead->id, 6, '0', STR_PAD_LEFT).' · '.$lead->service.' · '.$lead->name]))->searchable()->visible(static::documentType() === 'quote')->helperText('Connect this quote to its sales pipeline inquiry.'),
                 TextInput::make('title')->label('Project / document subject')->helperText('The PDF title and filename use the client name, document type and issue date (creation date for drafts).')->required()->maxLength(255),
                 Select::make('currency')->options(['MAD' => 'MAD', 'EUR' => 'EUR', 'USD' => 'USD'])->default(fn () => BusinessSetting::current()->currency)->required(),
                 Select::make('language')->options(['fr' => 'Français', 'en' => 'English'])->default(fn () => BusinessSetting::current()->language)->required(),
@@ -150,10 +171,15 @@ abstract class DocumentResource extends Resource
             ActionGroup::make([
                 Action::make('delete_confirmed')->label('Delete')->color('danger')->requiresConfirmation()->modalDescription('Remove this confirmed document from the admin lists? An unpaid invoice with no dependent documents will be cancelled so it can be replaced. Its number and history will be retained.')->visible(fn ($record) => in_array($record->type, ['quote', 'invoice'], true) && $record->issued_at)->action(fn ($record) => static::perform(fn () => app(DocumentWorkflow::class)->archive($record))),
                 DeleteAction::make()->label('Delete draft')->requiresConfirmation()->modalDescription('Permanently delete this draft and its line items? Issued documents cannot be deleted.')->visible(fn ($record) => static::canDelete($record)),
-                Action::make('issue')->label('Issue')->color('success')->requiresConfirmation()->modalDescription('This assigns a permanent number and locks the document. Check the preview PDF and totals first.')->visible(fn ($record) => ! $record->issued_at)->action(fn ($record) => static::perform(fn () => app(DocumentWorkflow::class)->issue($record))),
+                Action::make('issue')->label('Issue')->color('success')->requiresConfirmation()->modalDescription('This assigns a permanent number and locks the document. Check the preview PDF and totals first.')->visible(fn ($record) => ! $record->issued_at && $record->type !== 'contract')->action(fn ($record) => static::perform(fn () => app(DocumentWorkflow::class)->issue($record))),
                 Action::make('revision')->label('New quote revision')->visible(fn ($record) => $record->type === 'quote')->requiresConfirmation()->action(fn ($record) => static::perform(fn () => app(DocumentWorkflow::class)->duplicate($record, 'quote'))),
-                Action::make('contract')->label('Create contract')->visible(fn ($record) => $record->type === 'quote' && $record->status === 'accepted')->action(fn ($record) => static::perform(fn () => app(DocumentWorkflow::class)->duplicate($record, 'contract'))),
-                Action::make('monthly_billing')->label('Set up monthly billing')->visible(fn ($record) => $record->type === 'quote' && $record->status === 'accepted' && $record->billing_period === 'monthly')->url(fn () => \App\Filament\Resources\BillingScheduleResource::getUrl()),
+                Action::make('issue_contract')->label('Issue contract')->color('success')->requiresConfirmation()->modalDescription('Review the preview, selected service terms, dates and payment arrangements. Issuing locks this contract.')->schema([Checkbox::make('reviewed')->label('I reviewed and approved the complete contract terms')->accepted()->required()])->visible(fn ($record) => $record->type === 'contract' && ! $record->issued_at)->action(fn ($record) => static::perform(fn () => DB::transaction(function () use ($record) {
+                    $record->update(['contract_terms_reviewed' => true]);
+
+                    return app(DocumentWorkflow::class)->issue($record);
+                }))),
+                Action::make('contract')->label('Create optional contract')->visible(fn ($record) => $record->type === 'quote' && $record->status === 'accepted')->action(fn ($record) => static::perform(fn () => app(DocumentWorkflow::class)->duplicate($record, 'contract'))),
+                Action::make('monthly_billing')->label('Set up monthly billing')->visible(fn ($record) => $record->type === 'quote' && $record->status === 'accepted' && $record->billing_period === 'monthly')->url(fn () => BillingScheduleResource::getUrl()),
                 Action::make('invoice')->label('Create invoice')->visible(fn ($record) => $record->type === 'quote' && $record->status === 'accepted' && $record->billing_period !== 'monthly')->schema([Select::make('payment_percent')->label('Payment type')->options([100 => 'Full payment (100%)', 50 => 'Deposit (50%)'])->default(100)->required()])->action(fn ($record, array $data) => static::perform(fn () => app(DocumentWorkflow::class)->duplicate($record, 'invoice', (int) $data['payment_percent']))),
                 Action::make('signed')->label('Record signed contract')->requiresConfirmation()->modalDescription('Use only after receiving the signed agreement. This does not provide electronic signature.')->visible(fn ($record) => $record->type === 'contract' && $record->status === 'issued')->action(fn ($record) => static::perform(fn () => app(DocumentWorkflow::class)->markSigned($record))),
                 Action::make('final_invoice')->label('Create final balance invoice')->requiresConfirmation()->modalDescription('Creates a draft for the remaining quote amount, linked to this paid deposit invoice.')->visible(fn ($record) => $record->type === 'invoice' && $record->issued_at && $record->payment_percent === 50 && $record->paidAmount() >= $record->total_amount && $record->creditAmount() === 0 && ! BusinessDocument::where('deposit_invoice_id', $record->id)->where('status', '!=', 'cancelled')->exists())->action(fn ($record) => static::perform(fn () => app(DocumentWorkflow::class)->finalInvoice($record))),

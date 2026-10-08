@@ -102,3 +102,13 @@ The client portal shows the client’s project stages and their issued, non-dele
 ## WhatsApp Business automation
 
 **Settings → WhatsApp Business** controls approved booking confirmations and follow-up templates. Sending starts disabled and requires Meta credentials and approved templates. **Sales → WhatsApp outbox** tracks API and delivery status; **Sales → WhatsApp replies** records incoming replies and stops automatic follow-ups. See [the connection guide](WHATSAPP-BUSINESS.md) for setup, template parameter order and retry behaviour.
+
+## Optional service-specific contracts
+
+An accepted quote can go straight to an invoice; contracts never block invoicing or monthly billing. Use **Quotes → Workflow → Create optional contract**, or **Contracts → Create optional contract from quote**, only when needed.
+
+The draft copies the accepted quote’s client, language, currency, services, scope, prices and tax. It generates French or English sections for website development, SEO, marketing, photography/video, graphic design or custom work. Only the categories present in the quote are included. In **Sales → Service catalogue**, set **Contract service category** to override automatic recognition, particularly for custom package names. Changes to the catalogue affect future drafts only.
+
+Edit the generated terms to agree the actual deliverables, revisions, usage rights, cancellation arrangements and client responsibilities. Optional start/end dates and full payment, 50% deposit, monthly or custom payment arrangements print in the contract PDF. These describe the agreement; they do not issue invoices or record payments. Choose matching invoice workflows separately. An optional approved template adds clauses to the generated service sections; selecting or clearing it rebuilds the terms, so preserve custom edits first.
+
+Preview the PDF, then choose **Workflow → Issue contract** and confirm that you reviewed the complete terms. Issuance locks terms, dates, payment arrangements and the copied quote lines. Scope or pricing changes require a revised quote. Record a signature with the existing **Mark signed** action once actually signed; generating or issuing is not a signature. Issued contracts appear in the existing client portal. Existing issued contracts are unchanged.

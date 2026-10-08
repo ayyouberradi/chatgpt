@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Models\CatalogueService;
+use App\Services\ContractTerms;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -35,6 +36,7 @@ class ServiceResource extends Resource
     {
         return $schema->components([
             TextInput::make('name')->required()->maxLength(255), Textarea::make('description'),
+            Select::make('contract_category')->label('Contract service category')->options(ContractTerms::CATEGORIES)->helperText('Optional override for generated contracts. Blank uses the service name; unrecognised services use custom terms.'),
             Textarea::make('scope')->label('Deliverables / scope')->rows(5), Textarea::make('exclusions')->label('What is excluded'),
             TextInput::make('revision_limit')->numeric()->integer()->minValue(0)->maxValue(100)->default(2)->required(),
             TextInput::make('price')->label('Unit price')->default('0.00')->required()->regex('/^\d{1,9}([.,]\d{1,2})?$/'),
