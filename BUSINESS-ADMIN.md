@@ -132,3 +132,5 @@ Quotes, invoices and contracts have a **Document date** field. Choose today or a
 For a historical accepted quote whose validity date has passed, an administrator can record its past acceptance when its document date was within that validity period. Expired quotes remain unavailable for acceptance through the client portal.
 
 On **Invoices → Create invoice from quote**, choosing a date in an earlier month also allows a historical monthly invoice at 100% of the monthly quote price, once per quote/month. Dates in the current month continue to automatic monthly billing. Historical entry does not create a billing schedule or send messages.
+
+In **Monthly billing**, an active schedule has **Generate this month’s invoice now**. This issues only the selected quote’s current-month invoice, dated today, with the configured payment deadline. It also works before this month’s scheduled billing day. It checks already issued/manual invoices and partial billing, preserves any earlier periods awaiting catch-up, and prevents the automatic run from duplicating the invoice. Confirming issues the invoice immediately; it does not record payment.

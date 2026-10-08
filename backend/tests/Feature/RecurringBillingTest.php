@@ -85,6 +85,38 @@ class RecurringBillingTest extends TestCase
         $this->assertStringContainsString('partial historical invoice', $s->fresh()->last_error);
     }
 
+    public function test_issue_this_month_now_is_scoped_and_deduplicates_automatic_run(): void
+    {
+        $s = $this->schedule();
+        $other = $this->schedule();
+        $r = app(RecurringBilling::class);
+        Filament::setCurrentPanel(Filament::getPanel('manage'));
+        Livewire::test(ManageBillingSchedules::class)->callTableAction('issue_now', $s);
+        $this->assertSame(1, $s->invoices()->count());
+        $this->assertSame(0, $other->invoices()->count());
+        $this->assertSame(0, $r->issueThisMonth($s));
+        $this->assertSame('2026-02-28', $s->fresh()->next_issue_on->toDateString());
+        $this->assertSame(1, $r->run()['issued']);
+        $this->assertSame(1, $s->invoices()->count());
+    }
+
+    public function test_issue_now_before_billing_day_preserves_older_catchup_periods(): void
+    {
+        Carbon::setTestNow('2026-01-10 10:00:00');
+        $r = app(RecurringBilling::class);
+        $s = $r->create(['source_document_id' => $this->quote()->id, 'next_issue_on' => '2025-11-30', 'payment_due_days' => 7]);
+        $this->assertSame(1, $r->issueThisMonth($s));
+        $invoice = $s->invoices()->sole();
+        $this->assertSame('2026-01-10', $invoice->document_date->toDateString());
+        $this->assertSame('2026-01-17', $invoice->due_on->toDateString());
+        $this->assertSame('2025-11-30', $s->fresh()->next_issue_on->toDateString());
+        $this->assertSame(2, $r->run()['issued']);
+        $this->assertSame(3, $s->invoices()->count());
+        Carbon::setTestNow('2026-01-31 10:00:00');
+        $this->assertSame(0, $r->run()['issued']);
+        $this->assertSame(3, $s->invoices()->count());
+    }
+
     public function test_auto_issue_exact_amounts_idempotency_and_short_months(): void
     {
         $s = $this->schedule();

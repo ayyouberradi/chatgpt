@@ -9,11 +9,13 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\ValidationException;
 
 class BillingScheduleResource extends Resource
 {
@@ -43,6 +45,14 @@ class BillingScheduleResource extends Resource
             TextColumn::make('quote.client.display_name')->label('Client'), TextColumn::make('quote.number')->label('Quote'), TextColumn::make('quote.display_total')->label('Monthly amount'), TextColumn::make('next_issue_on')->date()->sortable(),
             TextColumn::make('payment_due_days')->label('Due after (days)'), TextColumn::make('status')->badge(), TextColumn::make('end_on')->date(), TextColumn::make('last_error')->label('Billing error')->wrap(),
         ])->recordActions([
+            Action::make('issue_now')->label('Generate this month’s invoice now')->requiresConfirmation()->modalDescription('Issue this month at the full quote price, dated today. Payment is due after the schedule’s configured number of days. Existing invoices are checked; earlier missing months stay queued for automatic catch-up.')->visible(fn ($record) => $record->status === 'active')->action(function ($record) {
+                try {
+                    $created = app(RecurringBilling::class)->issueThisMonth($record);
+                    Notification::make()->title($created ? 'This month’s invoice issued' : 'This month is already invoiced — no duplicate created')->success()->send();
+                } catch (ValidationException $e) {
+                    Notification::make()->title('Cannot issue invoice')->body(collect($e->errors())->flatten()->implode(' '))->danger()->send();
+                }
+            }),
             Action::make('pause')->requiresConfirmation()->visible(fn ($record) => $record->status === 'active')->action(fn ($record) => app(RecurringBilling::class)->changeStatus($record, 'paused')),
             Action::make('resume')->requiresConfirmation()->modalDescription('Resume future billing. Paused months are skipped without charges.')->visible(fn ($record) => $record->status === 'paused')->action(fn ($record) => app(RecurringBilling::class)->changeStatus($record, 'active')),
             Action::make('end')->color('danger')->requiresConfirmation()->modalDescription('Stop future invoices permanently. Existing invoices and payments are preserved.')->visible(fn ($record) => $record->status !== 'ended')->action(fn ($record) => app(RecurringBilling::class)->changeStatus($record, 'ended')),

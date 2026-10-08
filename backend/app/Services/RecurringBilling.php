@@ -12,6 +12,7 @@ use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
 final class RecurringBilling
@@ -67,6 +68,48 @@ final class RecurringBilling
         }
     }
 
+    public function issueThisMonth(BillingSchedule $original): int
+    {
+        Gate::authorize('manage-business');
+
+        return DB::transaction(function () use ($original) {
+            $s = BillingSchedule::lockForUpdate()->findOrFail($original->id);
+            $today = now('Africa/Casablanca');
+            $start = $today->copy()->startOfMonth()->day(min($s->billing_day, $today->daysInMonth));
+            if ($s->status !== 'active' || ($s->end_on && $start->toDateString() > $s->end_on->toDateString())) {
+                throw ValidationException::withMessages(['schedule' => 'Choose an active schedule covering this month.']);
+            }
+            $quote = BusinessDocument::lockForUpdate()->findOrFail($s->source_document_id);
+            if ($quote->archived_at || $quote->status !== 'accepted') {
+                throw ValidationException::withMessages(['quote' => 'The quote must remain active and accepted.']);
+            }
+            $invoices = BusinessDocument::where('source_document_id', $quote->id)->where('type', 'invoice')->whereNotNull('issued_at')->where(function ($q) use ($start) {
+                $q->whereDate('period_start', '>=', $start->copy()->startOfMonth()->toDateString())->whereDate('period_start', '<=', $start->copy()->endOfMonth()->toDateString())->orWhere(fn ($legacy) => $legacy->whereNull('period_start')->whereBetween('issued_at', [$start->copy()->startOfMonth()->startOfDay()->utc(), $start->copy()->endOfMonth()->endOfDay()->utc()]));
+            })->get();
+            if ($invoices->contains(fn ($i) => (bool) $i->billing_schedule_id) || $invoices->where('status', '!=', 'cancelled')->sum('total_amount') >= $quote->total_amount) {
+                return 0;
+            }
+            if ($invoices->where('status', '!=', 'cancelled')->sum('total_amount') > 0) {
+                throw ValidationException::withMessages(['invoice' => 'This month is partly invoiced. Reconcile it before generating another invoice.']);
+            }
+            if ($s->next_issue_on->toDateString() > $start->toDateString()) {
+                throw ValidationException::withMessages(['schedule' => 'This schedule starts after this month or the period has already been processed.']);
+            }
+            $previous = $s->next_issue_on->copy();
+            $next = $this->nextDate($start, $s->billing_day);
+            $s->update(['next_issue_on' => $start]);
+            $w = app(DocumentWorkflow::class);
+            $invoice = $w->duplicate($quote, 'invoice', 100);
+            $invoice->update(['document_date' => $today->toDateString(), 'billing_schedule_id' => $s->id, 'period_start' => $start, 'period_end' => $next->copy()->subDay(), 'due_on' => $today->copy()->addDays($s->payment_due_days)]);
+            $invoice = $w->issue($invoice);
+            $s->update(['next_issue_on' => $previous->toDateString() < $start->toDateString() ? $previous : $next, 'last_error' => null]);
+            AuditEvent::record('billing.current_month_issued_manually', $invoice, ['schedule_id' => $s->id]);
+            $this->notify('Monthly invoice issued', 'Invoice N°'.$invoice->number.' · '.$invoice->display_total);
+
+            return 1;
+        }, 5);
+    }
+
     public function run(): array
     {
         $today = now('Africa/Casablanca')->toDateString();
@@ -94,7 +137,7 @@ final class RecurringBilling
                         $start = $s->next_issue_on->copy();
                         $next = $this->nextDate($start, $s->billing_day);
                         $manualTotal = BusinessDocument::where('source_document_id', $quote->id)->where('type', 'invoice')->whereNull('billing_schedule_id')->whereNotNull('issued_at')->where('status', '!=', 'cancelled')->where(function ($q) use ($start) {
-                            $q->whereBetween('period_start', [$start->copy()->startOfMonth()->toDateString(), $start->copy()->endOfMonth()->toDateString()])->orWhere(fn ($legacy) => $legacy->whereNull('period_start')->whereBetween('issued_at', [Carbon::parse($start->format('Y-m-01'), 'Africa/Casablanca')->startOfDay()->utc(), Carbon::parse($start->format('Y-m-01'), 'Africa/Casablanca')->endOfMonth()->endOfDay()->utc()]));
+                            $q->whereDate('period_start', '>=', $start->copy()->startOfMonth()->toDateString())->whereDate('period_start', '<=', $start->copy()->endOfMonth()->toDateString())->orWhere(fn ($legacy) => $legacy->whereNull('period_start')->whereBetween('issued_at', [Carbon::parse($start->format('Y-m-01'), 'Africa/Casablanca')->startOfDay()->utc(), Carbon::parse($start->format('Y-m-01'), 'Africa/Casablanca')->endOfMonth()->endOfDay()->utc()]));
                         })->sum('total_amount');
                         if (! $s->invoices()->whereDate('period_start', $start)->exists() && $manualTotal < $quote->total_amount) {
 
