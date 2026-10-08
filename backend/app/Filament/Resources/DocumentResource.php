@@ -72,10 +72,12 @@ abstract class DocumentResource extends Resource
             Section::make('Document')->schema([
                 Select::make('business_client_id')->label('Client')->relationship('client', 'company')->getOptionLabelFromRecordUsing(fn (BusinessClient $record) => $record->display_name)->searchable(['company', 'name', 'phone', 'email'])->preload()->required()->live()->afterStateUpdated(function ($state, Set $set) {
                     if ($c = BusinessClient::find($state)) {
+                        $set('lead_id', null);
                         $set('currency', $c->currency);
                         $set('language', $c->language);
                     }
                 }),
+                Select::make('lead_id')->label('Linked inquiry (optional)')->options(fn (Get $get) => \App\Models\Lead::where('business_client_id', $get('business_client_id'))->get()->mapWithKeys(fn ($lead) => [$lead->id => 'REQ-'.str_pad((string) $lead->id, 6, '0', STR_PAD_LEFT).' · '.$lead->service.' · '.$lead->name]))->searchable()->visible(static::documentType() === 'quote')->helperText('Connect this quote to its sales pipeline inquiry.'),
                 TextInput::make('title')->label('Project / document subject')->helperText('The PDF title and filename use the client name, document type and issue date (creation date for drafts).')->required()->maxLength(255),
                 Select::make('currency')->options(['MAD' => 'MAD', 'EUR' => 'EUR', 'USD' => 'USD'])->default(fn () => BusinessSetting::current()->currency)->required(),
                 Select::make('language')->options(['fr' => 'Français', 'en' => 'English'])->default(fn () => BusinessSetting::current()->language)->required(),

@@ -98,6 +98,10 @@ jobs:
           python3 -c 'import os,pathlib; p=pathlib.Path(os.environ["RUNNER_TEMP"]); h=(p/"admin-headers.txt").read_text().lower(); assert "no-store" in h; assert "/site/assets/index-" in (p/"admin-index.html").read_text()'
           curl --fail --silent --show-error --retry 3 https://salmon-turtle-767162.hostingersite.com/api/settings -o "$RUNNER_TEMP/live-settings.json"
           python3 -c 'import json,os; d=json.load(open(os.environ["RUNNER_TEMP"]+"/live-settings.json")); assert isinstance(d["admin_data"]["services"],list); assert "seo_data" in d'
+          portal_status=$(curl --silent --show-error --retry 3 -o /dev/null -w '%{http_code}' https://salmon-turtle-767162.hostingersite.com/client)
+          test "$portal_status" = 403 || { echo 'Client portal must deny requests without client access'; exit 1; }
+          invalid_link_status=$(curl --silent --show-error --retry 3 -o /dev/null -w '%{http_code}' https://salmon-turtle-767162.hostingersite.com/client-access/invalid)
+          test "$invalid_link_status" = 404 || { echo 'Invalid client links must be rejected'; exit 1; }
       - name: Remove runner SSH material
         if: always()
         run: rm -rf "$RUNNER_TEMP/hostinger-ssh"

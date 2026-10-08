@@ -18,6 +18,25 @@ class Lead extends Model
         return ['follow_up_on' => 'date', 'preferred_at' => 'datetime', 'whatsapp_consent_at' => 'datetime', 'last_whatsapp_follow_up_at' => 'datetime'];
     }
 
+    protected static function booted(): void
+    {
+        static::updating(function (self $lead) {
+            if ($lead->isDirty('status') && ! array_key_exists($lead->status, \App\Services\SalesPipeline::STAGES)) {
+                throw ValidationException::withMessages(['status' => 'Choose a valid sales stage.']);
+            }
+        });
+        static::updated(function (self $lead) {
+            if ($lead->wasChanged('status')) {
+                AuditEvent::record('lead.stage_changed', $lead, ['from' => $lead->getOriginal('status'), 'to' => $lead->status]);
+            }
+        });
+    }
+
+    public function documents()
+    {
+        return $this->hasMany(BusinessDocument::class);
+    }
+
     public function getWhatsappConsentAttribute(): bool
     {
         return $this->whatsapp_consent_at !== null;
@@ -71,11 +90,13 @@ class Lead extends Model
     public function convertToClient(): BusinessClient
     {
         return DB::transaction(function () {
+            $locked = static::lockForUpdate()->findOrFail($this->id);
+            $this->setRawAttributes($locked->getAttributes(), true);
             $client = $this->business_client_id ? BusinessClient::findOrFail($this->business_client_id) : null;
             $email = trim($this->email ?? '') ?: null;
             $attributes = ['name' => $this->name, 'phone' => $this->phone, 'currency' => 'MAD', 'language' => 'fr'];
             $client ??= $email ? BusinessClient::firstOrCreate(['email' => $email], $attributes) : BusinessClient::create($attributes);
-            $this->update(['business_client_id' => $client->id, 'status' => 'qualified']);
+            $this->update(['business_client_id' => $client->id, 'status' => $this->status === 'new' ? 'contacted' : $this->status]);
             AuditEvent::record('lead.converted', $this, ['client_id' => $client->id]);
 
             return $client;

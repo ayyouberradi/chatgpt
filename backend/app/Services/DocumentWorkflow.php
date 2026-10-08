@@ -24,6 +24,9 @@ final class DocumentWorkflow
             if ($document->status !== 'draft' || $document->issued_at) {
                 $this->fail('Only drafts can be issued.');
             }
+            if ($document->lead_id && ! \App\Models\Lead::where('id', $document->lead_id)->where('business_client_id', $document->business_client_id)->exists()) {
+                $this->fail('The inquiry must be linked to this document client.');
+            }
             $settings = BusinessSetting::current();
             if (! $settings->legal_name || ! $settings->address || ! $settings->email || ! $settings->business_type || $settings->tax_mode === 'not_configured') {
                 $this->fail('Complete issuer identity and tax settings before issuing documents.');
@@ -146,18 +149,19 @@ final class DocumentWorkflow
         }, 5);
     }
 
-    public function accept(BusinessDocument $original): BusinessDocument
+    public function accept(BusinessDocument $original, string $channel = 'manually'): BusinessDocument
     {
-        return DB::transaction(function () use ($original) {
+        return DB::transaction(function () use ($original, $channel) {
             $document = BusinessDocument::lockForUpdate()->findOrFail($original->id);
             if ($document->type !== 'quote' || $document->status !== 'issued') {
                 $this->fail('Only issued quotes can be accepted.');
             }
-            if ($document->due_on?->endOfDay()->isPast()) {
+            if ($document->due_on && $document->due_on->toDateString() < now('Africa/Casablanca')->toDateString()) {
                 $this->fail('Quote has expired. Create a new draft revision.');
             }
             $document->update(['status' => 'accepted', 'accepted_at' => now()]);
-            AuditEvent::record('quote.accepted_manually', $document);
+            app(SalesPipeline::class)->accepted($document->lead_id);
+            AuditEvent::record($channel === 'client_portal' ? 'quote.accepted_client_portal' : 'quote.accepted_manually', $document);
 
             return $document;
         });
@@ -211,7 +215,7 @@ final class DocumentWorkflow
             $discount = Money::rounded($source->discount_amount * $portion, 100);
             $targetSubtotal = Money::rounded($source->total_amount * $portion, 100) - Money::rounded($source->tax_amount * $portion, 100) + $discount;
             $draft = BusinessDocument::create([
-                'type' => $type, 'business_client_id' => $source->business_client_id, 'source_document_id' => $type === 'quote' ? null : $source->id, 'title' => $source->title,
+                'lead_id' => $source->lead_id, 'type' => $type, 'business_client_id' => $source->business_client_id, 'source_document_id' => $type === 'quote' ? null : $source->id, 'title' => $source->title,
                 'currency' => $source->currency, 'language' => $source->language, 'billing_period' => $source->billing_period, 'due_on' => now()->addDays(30)->toDateString(),
                 'payment_percent' => $type === 'invoice' ? $portion : null,
                 'discount_amount' => $discount, 'tax_basis_points' => $source->tax_basis_points, 'terms' => $type === 'contract' ? null : $source->terms, 'created_by' => auth()->id(),

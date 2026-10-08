@@ -43,7 +43,16 @@ class ClientResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return $table->columns([TextColumn::make('company')->label('Company name')->state(fn (BusinessClient $record) => $record->display_name)->searchable(['company', 'name'])->sortable(), TextColumn::make('email')->searchable(), TextColumn::make('phone'), IconColumn::make('is_active')->boolean()])->recordActions([EditAction::make()->modalWidth('5xl')])->defaultSort('id', 'desc');
+        return $table->columns([TextColumn::make('company')->label('Company name')->state(fn (BusinessClient $record) => $record->display_name)->searchable(['company', 'name'])->sortable(), TextColumn::make('email')->searchable(), TextColumn::make('phone'), IconColumn::make('is_active')->boolean()])->recordActions([
+            \Filament\Actions\Action::make('portal')->label('Generate portal link')->requiresConfirmation()->modalDescription('Create a private link valid for 90 days. Anyone with it can view this client’s issued documents and accept quotes. Existing links and sessions will be revoked. Copy and share the new link with this client only.')->visible(fn (BusinessClient $record) => $record->is_active)->action(function (BusinessClient $record) {
+                $url = app(\App\Services\ClientPortal::class)->generate($record);
+                \Filament\Notifications\Notification::make()->title('Private client portal link — valid for 90 days')->body($url)->persistent()->actions([\Filament\Actions\Action::make('open')->label('Open client portal')->url($url)->openUrlInNewTab()])->send();
+            }),
+            \Filament\Actions\Action::make('revoke_portal')->label('Revoke portal access')->color('danger')->requiresConfirmation()->action(function (BusinessClient $record) {
+                app(\App\Services\ClientPortal::class)->revoke($record);
+                \Filament\Notifications\Notification::make()->title('Client portal links and sessions revoked')->success()->send();
+            }), EditAction::make()->modalWidth('5xl')
+        ])->defaultSort('id', 'desc');
     }
 
     public static function canCreate(): bool

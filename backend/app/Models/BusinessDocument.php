@@ -20,7 +20,7 @@ class BusinessDocument extends Model
     protected static function booted(): void
     {
         static::updating(function (self $document) {
-            if ($document->getOriginal('issued_at') && $document->isDirty(['billing_schedule_id', 'period_start', 'period_end', 'type', 'deposit_invoice_id', 'payment_percent', 'number', 'business_client_id', 'source_document_id', 'contract_template_id', 'title', 'currency', 'language', 'billing_period', 'due_on', 'discount_amount', 'tax_basis_points', 'subtotal_amount', 'tax_amount', 'total_amount', 'terms', 'notes', 'issuer_snapshot', 'client_snapshot', 'issued_at'])) {
+            if ($document->getOriginal('issued_at') && $document->isDirty(['lead_id', 'billing_schedule_id', 'period_start', 'period_end', 'type', 'deposit_invoice_id', 'payment_percent', 'number', 'business_client_id', 'source_document_id', 'contract_template_id', 'title', 'currency', 'language', 'billing_period', 'due_on', 'discount_amount', 'tax_basis_points', 'subtotal_amount', 'tax_amount', 'total_amount', 'terms', 'notes', 'issuer_snapshot', 'client_snapshot', 'issued_at'])) {
                 throw ValidationException::withMessages(['document' => 'Issued documents cannot be edited. Create a new draft revision.']);
             }
         });
@@ -30,6 +30,8 @@ class BusinessDocument extends Model
             }
         });
     }
+
+    public function lead() { return $this->belongsTo(Lead::class); }
 
     public function client()
     {

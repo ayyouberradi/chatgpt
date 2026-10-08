@@ -17,7 +17,7 @@ class BusinessOverview extends StatsOverviewWidget
     protected function getStats(): array
     {
         $stats = [Stat::make('New enquiries', Lead::where('status', 'new')->count())->description('Review the enquiries inbox')->url('/manage/leads'),
-            Stat::make('Follow-ups due', Lead::whereNotIn('status', ['won', 'lost'])->whereDate('follow_up_on', '<=', today())->count())->url('/manage/leads'),
+            Stat::make('Follow-ups due', Lead::whereNotIn('status', ['completed', 'lost'])->whereDate('follow_up_on', '<=', now('Africa/Casablanca')->toDateString())->count())->url('/manage/leads'),
             Stat::make('Draft quotes', BusinessDocument::where('type', 'quote')->whereNull('archived_at')->where('status', 'draft')->count())->url('/manage/quotes')];
         $balances = [];
         $overdue = 0;

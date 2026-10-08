@@ -24,6 +24,11 @@ Route::prefix('api')->group(function () {
     Route::any('{path}', fn () => response()->json(['message' => 'Not found.'], 404))->where('path', '.*');
 });
 Route::get('/manage/documents/{document}/pdf', BusinessPdfController::class)->middleware(['auth', 'can:manage-business'])->name('business.pdf');
+Route::get('/client-access/{token}', [\App\Http\Controllers\ClientPortalController::class, 'enter'])->middleware('throttle:10,1')->name('portal.enter');
+Route::get('/client', [\App\Http\Controllers\ClientPortalController::class, 'home'])->name('portal.home');
+Route::get('/client/documents/{id}/pdf', [\App\Http\Controllers\ClientPortalController::class, 'pdf'])->name('portal.pdf');
+Route::post('/client/quotes/{id}/accept', [\App\Http\Controllers\ClientPortalController::class, 'accept'])->middleware('throttle:10,1')->name('portal.accept');
+Route::post('/client/logout', [\App\Http\Controllers\ClientPortalController::class, 'leave'])->name('portal.leave');
 Route::get('/{path?}', function () {
     abort_unless(is_file(public_path('site/index.html')), 503, 'Build the frontend first.');
 
