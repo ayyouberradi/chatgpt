@@ -1,6 +1,6 @@
 @php
 $fr = $document->language === 'fr';
-$date = ($document->issued_at ?? $document->created_at)->copy()->setTimezone('Africa/Casablanca');
+$date = ($document->issued_at ?? $document->document_date ?? $document->created_at)->copy()->setTimezone('Africa/Casablanca');
 $clientName = trim($client['company'] ?? '') ?: ($client['name'] ?? 'Client');
 $money = function ($value) use ($document, $fr) {
     [$whole, $fraction] = explode('.', \App\Support\Money::decimal((int) $value));

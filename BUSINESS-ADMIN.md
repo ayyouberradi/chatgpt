@@ -116,3 +116,19 @@ Preview the PDF, then choose **Workflow → Issue contract** and confirm that yo
 Community management has its own section: selected accounts and monthly deliverables, client approval before publishing, moderation boundaries, account ownership and handover, advertising exclusions, no guaranteed growth and explicit duration/renewal/notice arrangements. The old reference contract’s price, date and French-law reference are not copied into new contracts.
 
 The invoice creation picker includes all active accepted quotes and labels monthly billing explicitly. Selecting a monthly quote and continuing opens Monthly billing with the quote ready to select for a new schedule; it does not create a manual invoice. Existing schedules remain managed on the Monthly billing page. Non-monthly quotes retain full/deposit draft invoice creation.
+
+## Project workspace
+
+Use **Projects → Projects → Create project from accepted quote**, or an accepted quote’s **Workflow → Create / open project**. A quote has one workspace; repeating creation opens the existing project. No contract is required. Edit the project’s status, deadline, client visibility and private notes. **Workspace** brings tasks, deliverables and linked quote, contracts, invoices, paid amounts and outstanding balances together.
+
+Use **Tasks & deliverables** to add work, deadlines, client-facing instructions, optional HTTP/HTTPS review links and private internal notes. Internal tasks start hidden from clients. Turn on **Show to client** for items you intend to share. The project itself must also be visible. Overdue unfinished tasks are highlighted and have an Overdue filter.
+
+For a visible deliverable, choose **Request client approval**. Share the client’s existing private portal link separately; this action does not send WhatsApp messages or email. The portal allows approval of the current version or a request for changes with required feedback. Reviews are audited and notify administrators. Editing the title, instructions, link, type or visibility increments the version and resets approval; submit the revised draft for a new review. Internal project/task notes never appear in the client portal. Projects and tasks are retained rather than deleted to preserve history; pause projects when appropriate.
+
+## Earlier document dates
+
+Quotes, invoices and contracts have a **Document date** field. Choose today or an earlier date before issuing. Draft previews, final PDF dates and date-based numbering use it. Creation/audit timestamps retain when the entry was actually made. Issued dates are locked; existing issued documents are unchanged. Record any historical payments separately with their actual payment dates to keep outstanding balances accurate.
+
+For a historical accepted quote whose validity date has passed, an administrator can record its past acceptance when its document date was within that validity period. Expired quotes remain unavailable for acceptance through the client portal.
+
+On **Invoices → Create invoice from quote**, choosing a date in an earlier month also allows a historical monthly invoice at 100% of the monthly quote price, once per quote/month. Dates in the current month continue to automatic monthly billing. Historical entry does not create a billing schedule or send messages.

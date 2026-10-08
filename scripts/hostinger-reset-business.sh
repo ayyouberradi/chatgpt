@@ -23,7 +23,7 @@ $preserve = ['users', 'site_settings', 'business_settings', 'catalogue_services'
 $fingerprint = function ($table) use ($connection) { return hash('sha256', serialize($connection->table($table)->orderBy('id')->get()->all())); };
 $before = [];
 foreach ($preserve as $table) $before[$table] = $fingerprint($table);
-$clear = ['whatsapp_replies', 'whatsapp_status_events', 'whatsapp_messages', 'client_portal_accesses', 'billing_reminders', 'notifications', 'billing_schedules', 'payments', 'document_items', 'business_documents', 'lead_follow_ups', 'leads', 'business_clients', 'audit_events', 'daily_document_sequences', 'document_sequences'];
+$clear = ['project_tasks', 'projects', 'whatsapp_replies', 'whatsapp_status_events', 'whatsapp_messages', 'client_portal_accesses', 'billing_reminders', 'notifications', 'billing_schedules', 'payments', 'document_items', 'business_documents', 'lead_follow_ups', 'leads', 'business_clients', 'audit_events', 'daily_document_sequences', 'document_sequences'];
 $connection->transaction(function () use ($connection, $clear, $before, $fingerprint) {
     // Remove self references before deleting numbered and linked records.
     $connection->table('business_documents')->update(['source_document_id' => null, 'deposit_invoice_id' => null, 'billing_schedule_id' => null, 'lead_id' => null]);

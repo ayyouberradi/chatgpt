@@ -14,7 +14,7 @@ class BusinessDocument extends Model
 
     protected function casts(): array
     {
-        return ['contract_generated' => 'boolean', 'contract_terms_reviewed' => 'boolean', 'contract_start_on' => 'date', 'contract_end_on' => 'date', 'period_start' => 'date', 'period_end' => 'date', 'archived_at' => 'datetime', 'payment_percent' => 'integer', 'issuer_snapshot' => 'array', 'client_snapshot' => 'array', 'issued_at' => 'datetime', 'accepted_at' => 'datetime', 'signed_at' => 'datetime', 'due_on' => 'date', 'discount_amount' => 'integer', 'tax_basis_points' => 'integer', 'subtotal_amount' => 'integer', 'tax_amount' => 'integer', 'total_amount' => 'integer'];
+        return ['document_date' => 'date', 'contract_generated' => 'boolean', 'contract_terms_reviewed' => 'boolean', 'contract_start_on' => 'date', 'contract_end_on' => 'date', 'period_start' => 'date', 'period_end' => 'date', 'archived_at' => 'datetime', 'payment_percent' => 'integer', 'issuer_snapshot' => 'array', 'client_snapshot' => 'array', 'issued_at' => 'datetime', 'accepted_at' => 'datetime', 'signed_at' => 'datetime', 'due_on' => 'date', 'discount_amount' => 'integer', 'tax_basis_points' => 'integer', 'subtotal_amount' => 'integer', 'tax_amount' => 'integer', 'total_amount' => 'integer'];
     }
 
     protected static function booted(): void
@@ -23,7 +23,7 @@ class BusinessDocument extends Model
             if (! $document->getOriginal('issued_at') && $document->isDirty(['terms', 'contract_start_on', 'contract_end_on', 'contract_payment_plan', 'contract_template_id'])) {
                 $document->contract_terms_reviewed = false;
             }
-            if ($document->getOriginal('issued_at') && $document->isDirty(['contract_generated', 'contract_terms_reviewed', 'contract_start_on', 'contract_end_on', 'contract_payment_plan', 'lead_id', 'billing_schedule_id', 'period_start', 'period_end', 'type', 'deposit_invoice_id', 'payment_percent', 'number', 'business_client_id', 'source_document_id', 'contract_template_id', 'title', 'currency', 'language', 'billing_period', 'due_on', 'discount_amount', 'tax_basis_points', 'subtotal_amount', 'tax_amount', 'total_amount', 'terms', 'notes', 'issuer_snapshot', 'client_snapshot', 'issued_at'])) {
+            if ($document->getOriginal('issued_at') && $document->isDirty(['document_date', 'contract_generated', 'contract_terms_reviewed', 'contract_start_on', 'contract_end_on', 'contract_payment_plan', 'lead_id', 'billing_schedule_id', 'period_start', 'period_end', 'type', 'deposit_invoice_id', 'payment_percent', 'number', 'business_client_id', 'source_document_id', 'contract_template_id', 'title', 'currency', 'language', 'billing_period', 'due_on', 'discount_amount', 'tax_basis_points', 'subtotal_amount', 'tax_amount', 'total_amount', 'terms', 'notes', 'issuer_snapshot', 'client_snapshot', 'issued_at'])) {
                 throw ValidationException::withMessages(['document' => 'Issued documents cannot be edited. Create a new draft revision.']);
             }
         });
@@ -145,7 +145,7 @@ class BusinessDocument extends Model
         $labels = $this->language === 'fr'
             ? ['quote' => 'Devis', 'invoice' => 'Facture', 'contract' => 'Contrat', 'credit_note' => 'Avoir']
             : ['quote' => 'Quote', 'invoice' => 'Invoice', 'contract' => 'Contract', 'credit_note' => 'Credit note'];
-        $date = ($this->issued_at ?? $this->created_at)->copy()->setTimezone('Africa/Casablanca')->format('d-m-Y');
+        $date = ($this->issued_at ?? $this->document_date ?? $this->created_at)->copy()->setTimezone('Africa/Casablanca')->format('d-m-Y');
 
         return $name.' - '.$labels[$this->type].' - '.$date;
     }

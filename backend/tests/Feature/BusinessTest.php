@@ -10,6 +10,7 @@ use App\Filament\Resources\Pages\ManageInvoices;
 use App\Filament\Resources\Pages\ManageQuotes;
 use App\Filament\Resources\QuoteResource;
 use App\Filament\Widgets\BusinessOverview;
+use App\Models\BillingSchedule;
 use App\Models\BusinessClient;
 use App\Models\BusinessDocument;
 use App\Models\BusinessSetting;
@@ -161,6 +162,50 @@ class BusinessTest extends TestCase
         Livewire::test(ManageInvoices::class)->callAction('create', ['quote_id' => $quote->id])->assertHasNoActionErrors()->assertRedirect(BillingScheduleResource::getUrl('index', ['quote_id' => $quote->id]));
         $this->assertSame(0, BusinessDocument::where('type', 'invoice')->count());
         $this->get(BillingScheduleResource::getUrl('index', ['quote_id' => $quote->id]))->assertOk();
+    }
+
+    public function test_earlier_document_date_controls_pdf_numbering_and_historical_payment(): void
+    {
+        $w = app(DocumentWorkflow::class);
+        $q = $this->draft('quote', ['document_date' => '2025-09-08', 'due_on' => '2025-10-08']);
+        $this->assertStringContainsString('08-09-2025', $q->pdfTitle());
+        $q = $w->accept($w->issue($q));
+        $this->assertSame('8092025/1', $q->number);
+        $i = $w->duplicate($q, 'invoice');
+        $i->update(['document_date' => '2025-09-08', 'due_on' => '2025-09-20']);
+        $i = $w->issue($i);
+        $this->assertSame('8092025/1', $i->number);
+        $this->assertSame('2025-09-08', $i->issued_at->setTimezone('Africa/Casablanca')->toDateString());
+        $this->assertStringContainsString('08-09-2025', $i->pdfTitle());
+        $w->recordPayment($i, ['amount' => Money::decimal($i->total_amount), 'paid_on' => '2025-09-15', 'method' => 'bank_transfer']);
+        $this->assertSame(0, $i->balanceAmount());
+        $this->rejected(fn () => $i->update(['document_date' => '2025-09-09']));
+        $future = $this->draft('quote', ['document_date' => now('Africa/Casablanca')->addDay()->toDateString()]);
+        $this->rejected(fn () => $w->issue($future));
+        $second = $w->issue($this->draft('quote', ['document_date' => '2025-09-08']));
+        $this->assertSame('8092025/2', $second->number);
+    }
+
+    public function test_historical_monthly_invoice_is_manual_once_per_month(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        Filament::setCurrentPanel(Filament::getPanel('manage'));
+        $w = app(DocumentWorkflow::class);
+        $q = $this->draft('quote', ['billing_period' => 'monthly']);
+        $q->items()->update(['billing_period' => 'monthly']);
+        $q = $w->accept($w->issue($q));
+        Livewire::test(ManageInvoices::class)->callAction('create', ['quote_id' => $q->id, 'document_date' => '2025-09-08'])->assertHasNoActionErrors();
+        $i = $w->issue(BusinessDocument::where('type', 'invoice')->sole());
+        $this->assertSame('2025-09-01', $i->period_start->toDateString());
+        $this->assertSame('2025-09-30', $i->period_end->toDateString());
+        $this->assertSame(100, $i->payment_percent);
+        $again = $w->duplicate($q, 'invoice');
+        $again->update(['document_date' => '2025-09-20']);
+        $this->rejected(fn () => $w->issue($again));
+        $another = $w->duplicate($q, 'invoice');
+        $another->update(['document_date' => '2025-08-20']);
+        $this->assertNotNull($w->issue($another)->issued_at);
+        $this->assertSame(0, BillingSchedule::count());
     }
 
     public function test_invoice_pdf_hides_extra_labels_and_places_due_date_under_heading(): void

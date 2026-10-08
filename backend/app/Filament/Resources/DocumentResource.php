@@ -10,6 +10,7 @@ use App\Models\ContractTemplate;
 use App\Models\Lead;
 use App\Services\ContractTerms;
 use App\Services\DocumentWorkflow;
+use App\Services\ProjectWorkspace;
 use App\Support\Money;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -66,6 +67,7 @@ abstract class DocumentResource extends Resource
             return $schema->components([
                 TextInput::make('quote_reference')->label('Accepted quote / client')->afterStateHydrated(fn (TextInput $component, ?BusinessDocument $record) => $component->state($record?->source?->number.' · '.$record?->client?->display_name))->disabled()->dehydrated(false),
                 TextInput::make('title')->label('Project')->required()->maxLength(255),
+                DatePicker::make('document_date')->label('Document date')->default(now('Africa/Casablanca')->toDateString())->maxDate(now('Africa/Casablanca')->toDateString())->helperText('Choose today or an earlier date. The PDF and number use this date when issued.'),
                 DatePicker::make('contract_start_on')->label('Start date (optional)'),
                 DatePicker::make('contract_end_on')->label('Delivery / end date (optional)')->afterOrEqual('contract_start_on'),
                 Select::make('contract_payment_plan')->label('Payment arrangement')->options(['full' => 'Full payment (100%) before work starts', 'deposit_50' => '50% deposit, 50% on completion', 'monthly' => 'Monthly payment', 'custom' => 'Custom — specify in terms'])->required(fn (?BusinessDocument $record) => (bool) $record?->contract_generated),
@@ -84,6 +86,7 @@ abstract class DocumentResource extends Resource
                 TextInput::make('quote_reference')->label('Linked quote')->afterStateHydrated(fn (TextInput $component, ?BusinessDocument $record) => $component->state($record?->source?->number))->disabled()->dehydrated(false),
                 TextInput::make('deposit_reference')->label('Deposit invoice')->afterStateHydrated(fn (TextInput $component, ?BusinessDocument $record) => $component->state($record?->depositInvoice?->number))->visible(fn (?BusinessDocument $record) => (bool) $record?->deposit_invoice_id)->disabled()->dehydrated(false),
                 TextInput::make('payment_description')->label('Payment type')->afterStateHydrated(fn (TextInput $component, ?BusinessDocument $record) => $component->state($record?->deposit_invoice_id ? 'Final balance' : ($record?->payment_percent === 50 ? 'Deposit (50%)' : 'Full payment (100%)')))->disabled()->dehydrated(false),
+                DatePicker::make('document_date')->label('Document date')->default(now('Africa/Casablanca')->toDateString())->maxDate(now('Africa/Casablanca')->toDateString())->helperText('Choose today or an earlier date. The PDF and number use this date when issued.'),
                 DatePicker::make('due_on')->label('Due date')->required(),
                 Textarea::make('notes')->label('Internal notes — not printed')->maxLength(2000),
             ])->columns(2);
@@ -91,6 +94,7 @@ abstract class DocumentResource extends Resource
 
         return $schema->components([
             Section::make('Document')->schema([
+                DatePicker::make('document_date')->label('Document date')->default(now('Africa/Casablanca')->toDateString())->maxDate(now('Africa/Casablanca')->toDateString())->helperText('Choose today or an earlier date. The PDF and number use this date when issued.'),
                 Select::make('business_client_id')->label('Client')->relationship('client', 'company')->getOptionLabelFromRecordUsing(fn (BusinessClient $record) => $record->display_name)->searchable(['company', 'name', 'phone', 'email'])->preload()->required()->live()->afterStateUpdated(function ($state, Set $set) {
                     if ($c = BusinessClient::find($state)) {
                         $set('lead_id', null);
@@ -178,6 +182,9 @@ abstract class DocumentResource extends Resource
 
                     return app(DocumentWorkflow::class)->issue($record);
                 }))),
+                Action::make('project')->label('Create / open project')->visible(fn ($record) => $record->type === 'quote' && $record->status === 'accepted')->action(function ($record) {
+                    static::perform(fn () => app(ProjectWorkspace::class)->create($record->id));
+                })->successRedirectUrl(fn () => ProjectResource::getUrl()),
                 Action::make('contract')->label('Create optional contract')->visible(fn ($record) => $record->type === 'quote' && $record->status === 'accepted')->action(fn ($record) => static::perform(fn () => app(DocumentWorkflow::class)->duplicate($record, 'contract'))),
                 Action::make('monthly_billing')->label('Set up monthly billing')->visible(fn ($record) => $record->type === 'quote' && $record->status === 'accepted' && $record->billing_period === 'monthly')->url(fn () => BillingScheduleResource::getUrl()),
                 Action::make('invoice')->label('Create invoice')->visible(fn ($record) => $record->type === 'quote' && $record->status === 'accepted' && $record->billing_period !== 'monthly')->schema([Select::make('payment_percent')->label('Payment type')->options([100 => 'Full payment (100%)', 50 => 'Deposit (50%)'])->default(100)->required()])->action(fn ($record, array $data) => static::perform(fn () => app(DocumentWorkflow::class)->duplicate($record, 'invoice', (int) $data['payment_percent']))),

@@ -6,8 +6,10 @@ use App\Models\AuditEvent;
 use App\Models\BusinessDocument;
 use App\Models\BusinessSetting;
 use App\Models\ClientPortalAccess;
+use App\Models\Project;
 use App\Models\User;
 use App\Services\DocumentWorkflow;
+use App\Services\ProjectWorkspace;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Illuminate\Http\Request;
@@ -53,10 +55,11 @@ class ClientPortalController extends Controller
         foreach ($documents->where('type', 'invoice') as $invoice) {
             $balances[$invoice->currency] = ($balances[$invoice->currency] ?? 0) + $invoice->balanceAmount();
         }
+        $workspaces = Project::where('business_client_id', $client->id)->where('client_visible', true)->with(['tasks' => fn ($q) => $q->where('client_visible', true)])->get();
         $projects = $client->leads()->select('id', 'service', 'status')->get();
         $company = BusinessSetting::current();
 
-        return $this->protect(response()->view('portal.home', compact('client', 'documents', 'balances', 'projects', 'company')));
+        return $this->protect(response()->view('portal.home', compact('client', 'documents', 'balances', 'projects', 'company', 'workspaces')));
     }
 
     public function pdf(Request $request, int $id)
@@ -83,6 +86,15 @@ class ClientPortalController extends Controller
         }, 5);
 
         return $this->protect(redirect()->route('portal.home')->with('portal_success', 'accepted'));
+    }
+
+    public function review(Request $request, int $id)
+    {
+        $access = $this->access($request);
+        $data = $request->validate(['revision' => 'required|integer|min:1', 'decision' => 'required|in:approved,changes_requested', 'feedback' => 'nullable|required_if:decision,changes_requested|string|max:4000']);
+        app(ProjectWorkspace::class)->review($access, $id, (int) $data['revision'], $data['decision'], $data['feedback'] ?? null);
+
+        return $this->protect(redirect()->route('portal.home')->with('portal_success', 'reviewed'));
     }
 
     public function leave(Request $request)

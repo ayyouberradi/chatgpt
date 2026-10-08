@@ -32,6 +32,7 @@ Route::get('/client-access/{token}', [ClientPortalController::class, 'enter'])->
 Route::get('/client', [ClientPortalController::class, 'home'])->name('portal.home');
 Route::get('/client/documents/{id}/pdf', [ClientPortalController::class, 'pdf'])->name('portal.pdf');
 Route::post('/client/quotes/{id}/accept', [ClientPortalController::class, 'accept'])->middleware('throttle:10,1')->name('portal.accept');
+Route::post('/client/deliverables/{id}/review', [ClientPortalController::class, 'review'])->middleware('throttle:10,1')->name('portal.review');
 Route::post('/client/logout', [ClientPortalController::class, 'leave'])->name('portal.leave');
 Route::get('/{path?}', function () {
     abort_unless(is_file(public_path('site/index.html')), 503, 'Build the frontend first.');
