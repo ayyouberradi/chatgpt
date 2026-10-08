@@ -98,6 +98,9 @@ final class RecurringBilling
                         })->sum('total_amount');
                         if (! $s->invoices()->whereDate('period_start', $start)->exists() && $manualTotal < $quote->total_amount) {
 
+                            if ($manualTotal > 0) {
+                                throw ValidationException::withMessages(['invoice' => 'This month has a partial historical invoice. Reconcile the remaining amount before automatic billing.']);
+                            }
                             $s->save();
                             $w = app(DocumentWorkflow::class);
                             $invoice = $w->duplicate($quote, 'invoice', 100);

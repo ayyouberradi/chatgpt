@@ -74,6 +74,17 @@ class RecurringBillingTest extends TestCase
         $this->assertSame('2025-12-10', $manual->fresh()->document_date->toDateString());
     }
 
+    public function test_partial_legacy_invoice_stops_catchup_without_double_billing(): void
+    {
+        $q = $this->quote();
+        BusinessDocument::create(['type' => 'invoice', 'business_client_id' => $q->business_client_id, 'source_document_id' => $q->id, 'title' => 'Legacy partial invoice', 'currency' => 'MAD', 'language' => 'fr', 'billing_period' => 'monthly', 'status' => 'issued', 'issued_at' => '2025-12-10 12:00:00', 'total_amount' => 60000, 'payment_percent' => 50]);
+        $r = app(RecurringBilling::class);
+        $s = $r->create(['source_document_id' => $q->id, 'next_issue_on' => '2025-12-01', 'payment_due_days' => 7]);
+        $this->assertSame(1, $r->run()['errors']);
+        $this->assertSame(1, BusinessDocument::where('type', 'invoice')->count());
+        $this->assertStringContainsString('partial historical invoice', $s->fresh()->last_error);
+    }
+
     public function test_auto_issue_exact_amounts_idempotency_and_short_months(): void
     {
         $s = $this->schedule();
