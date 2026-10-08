@@ -133,6 +133,22 @@ class BusinessTest extends TestCase
         $this->assertStringNotContainsString('MARKETING DIGITAL', $html);
     }
 
+    public function test_community_management_uses_relevant_terms_without_old_contract_values(): void
+    {
+        $quote = $this->draft();
+        $quote->items->first()->update(['description' => 'Community management', 'scope' => 'Instagram: 8 posts, 4 reels per month']);
+        $quote->refresh();
+        $terms = app(ContractTerms::class)->compose($quote);
+        $this->assertStringContainsString('COMMUNITY MANAGEMENT', $terms);
+        $this->assertStringContainsString('8 posts, 4 reels', $terms);
+        $this->assertStringContainsString('préavis de résiliation', $terms);
+        $this->assertStringNotContainsString('SITE WEB', $terms);
+        $this->assertStringNotContainsString('MARKETING DIGITAL', $terms);
+        $this->assertStringNotContainsString('13/09/2021', $terms);
+        $this->assertStringNotContainsString('Mille cinq cent', $terms);
+        $this->assertStringNotContainsString('françaises', $terms);
+    }
+
     public function test_invoice_pdf_hides_extra_labels_and_places_due_date_under_heading(): void
     {
         BusinessSetting::current()->update(['payment_instructions' => 'Bank: Test bank']);
