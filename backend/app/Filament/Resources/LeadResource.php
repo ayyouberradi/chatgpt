@@ -3,7 +3,10 @@
 namespace App\Filament\Resources;
 
 use App\Models\Lead;
+use App\Models\WhatsAppSetting;
 use App\Services\LeadFollowUpWorkflow;
+use App\Services\SalesPipeline;
+use App\Services\WhatsAppBusiness;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
@@ -16,6 +19,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
@@ -44,14 +48,24 @@ class LeadResource extends Resource
             TextInput::make('preferred_display')->label('Requested time')->disabled()->dehydrated(false),
             Toggle::make('whatsapp_consent')->label('Permission for WhatsApp follow-up')->helperText('Enable only after the client has agreed to WhatsApp follow-up.'),
             TextInput::make('service'), TextInput::make('business'), TextInput::make('budget'), TextInput::make('timeline'), Textarea::make('message')->rows(4),
-            Select::make('status')->options(\App\Services\SalesPipeline::STAGES)->default('new')->required(),
+            Select::make('status')->options(SalesPipeline::STAGES)->default('new')->required(),
             DatePicker::make('follow_up_on'), Textarea::make('notes')->label('Internal notes'), TextInput::make('source')->default('manual')->required(),
         ])->columns(2);
     }
 
     public static function table(Table $table): Table
     {
-        return $table->columns([TextColumn::make('name')->searchable()->sortable(), TextColumn::make('email')->searchable(), TextColumn::make('phone')->searchable(), TextColumn::make('source')->badge(), TextColumn::make('service'), TextColumn::make('intent')->badge(), TextColumn::make('preferred_display')->label('Requested time'), IconColumn::make('whatsapp_ready')->label('WhatsApp')->state(fn (Lead $record) => $record->whatsappReady())->boolean(), TextColumn::make('last_whatsapp_follow_up_at')->label('Last WhatsApp follow-up')->dateTime(), TextColumn::make('status')->badge(), TextColumn::make('follow_up_on')->date()->sortable(), TextColumn::make('created_at')->dateTime()->sortable()])->filters([SelectFilter::make('status')->options(\App\Services\SalesPipeline::STAGES), \Filament\Tables\Filters\Filter::make('needs_follow_up')->label('Needs follow-up')->query(fn ($q) => $q->whereDate('follow_up_on', '<=', now('Africa/Casablanca')->toDateString())->whereNotIn('status', ['completed', 'lost']))])->recordActions([
+        return $table->columns([TextColumn::make('name')->searchable()->sortable(), TextColumn::make('email')->searchable(), TextColumn::make('phone')->searchable(), TextColumn::make('source')->badge(), TextColumn::make('service'), TextColumn::make('intent')->badge(), TextColumn::make('preferred_display')->label('Requested time'), IconColumn::make('whatsapp_ready')->label('WhatsApp')->state(fn (Lead $record) => $record->whatsappReady())->boolean(), TextColumn::make('last_whatsapp_follow_up_at')->label('Last WhatsApp follow-up')->dateTime(), TextColumn::make('status')->badge(), TextColumn::make('follow_up_on')->date()->sortable(), TextColumn::make('created_at')->dateTime()->sortable()])->filters([SelectFilter::make('status')->options(SalesPipeline::STAGES), Filter::make('needs_follow_up')->label('Needs follow-up')->query(fn ($q) => $q->whereDate('follow_up_on', '<=', now('Africa/Casablanca')->toDateString())->whereNotIn('status', ['completed', 'lost']))])->recordActions([
+            Action::make('business_whatsapp')->label('Send Business template')->requiresConfirmation()->modalDescription('Queue the approved follow-up template for this lead. Sending and delivery status appear in WhatsApp outbox.')->visible(fn (Lead $record) => $record->whatsappReady() && WhatsAppSetting::current()->enabled && ! in_array($record->status, ['accepted', 'in_progress', 'completed', 'lost']))->action(function (Lead $record) {
+                $message = app(WhatsAppBusiness::class)->enqueue($record, 'followup', false);
+                if (! $message) {
+                    Notification::make()->title('Configure the approved follow-up template before sending')->warning()->send();
+
+                    return;
+                }
+                defer(fn () => app(WhatsAppBusiness::class)->send($message->id));
+                Notification::make()->title('Template queued — check WhatsApp outbox for delivery')->success()->send();
+            }),
             Action::make('whatsapp')->label('Prepare WhatsApp')->visible(fn (Lead $record) => $record->whatsappReady())->schema([Textarea::make('message')->required()->minLength(10)->maxLength(3000)->rows(7)->default(fn (Lead $record) => $record->suggestedWhatsAppMessage())])->action(function (Lead $record, array $data) {
                 $draft = app(LeadFollowUpWorkflow::class)->prepare($record, $data['message']);
                 Notification::make()->title('Message prepared — send it in WhatsApp')->body('After sending, record it in WhatsApp follow-ups and choose the next follow-up date.')->success()->persistent()->actions([Action::make('open')->label('Open WhatsApp')->url($draft->whatsappUrl())->openUrlInNewTab(), Action::make('history')->label('Follow-ups')->url('/manage/whatsapp-follow-ups')])->send();

@@ -20,7 +20,7 @@ class FollowUpResource extends Resource
 {
     protected static ?string $model = LeadFollowUp::class;
 
-    protected static ?string $navigationLabel = 'WhatsApp follow-ups';
+    protected static ?string $navigationLabel = 'Manual WhatsApp follow-ups';
 
     protected static ?string $modelLabel = 'WhatsApp follow-up';
 

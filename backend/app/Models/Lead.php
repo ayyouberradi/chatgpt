@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\SalesPipeline;
 use App\Support\WhatsAppPhone;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -15,13 +16,13 @@ class Lead extends Model
 
     protected function casts(): array
     {
-        return ['follow_up_on' => 'date', 'preferred_at' => 'datetime', 'whatsapp_consent_at' => 'datetime', 'last_whatsapp_follow_up_at' => 'datetime'];
+        return ['last_whatsapp_reply_at' => 'datetime', 'follow_up_on' => 'date', 'preferred_at' => 'datetime', 'whatsapp_consent_at' => 'datetime', 'last_whatsapp_follow_up_at' => 'datetime'];
     }
 
     protected static function booted(): void
     {
         static::updating(function (self $lead) {
-            if ($lead->isDirty('status') && ! array_key_exists($lead->status, \App\Services\SalesPipeline::STAGES)) {
+            if ($lead->isDirty('status') && ! array_key_exists($lead->status, SalesPipeline::STAGES)) {
                 throw ValidationException::withMessages(['status' => 'Choose a valid sales stage.']);
             }
         });

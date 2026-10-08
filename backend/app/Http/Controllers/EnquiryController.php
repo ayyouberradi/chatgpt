@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Lead;
+use App\Services\WhatsAppBusiness;
 use App\Support\WhatsAppPhone;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -74,6 +75,13 @@ class EnquiryController extends Controller
             $lead = Lead::firstOrCreate(['submission_key' => $key], $data + ['intent' => $intent, 'source' => 'website', 'status' => 'new', 'follow_up_on' => today(), 'whatsapp_consent_at' => $consent ? now() : null]);
             if (! $lead->wasRecentlyCreated && ($lead->email !== $data['email'] || $lead->name !== $data['name'])) {
                 throw ValidationException::withMessages(['submission_key' => 'This request identifier is already in use.']);
+            }
+
+            if ($lead->wasRecentlyCreated) {
+                $outbound = app(WhatsAppBusiness::class)->enqueue($lead);
+                if ($outbound) {
+                    defer(fn () => app(WhatsAppBusiness::class)->send($outbound->id));
+                }
             }
 
             return $lead;
