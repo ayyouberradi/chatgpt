@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Resources\BillingScheduleResource;
 use App\Filament\Resources\InvoiceResource;
 use App\Filament\Resources\Pages\ManageClients;
 use App\Filament\Resources\Pages\ManageContracts;
@@ -147,6 +148,19 @@ class BusinessTest extends TestCase
         $this->assertStringNotContainsString('13/09/2021', $terms);
         $this->assertStringNotContainsString('Mille cinq cent', $terms);
         $this->assertStringNotContainsString('françaises', $terms);
+    }
+
+    public function test_invoice_creation_includes_monthly_quotes_and_routes_to_billing(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        Filament::setCurrentPanel(Filament::getPanel('manage'));
+        $w = app(DocumentWorkflow::class);
+        $quote = $this->draft('quote', ['billing_period' => 'monthly']);
+        $quote->items()->update(['billing_period' => 'monthly']);
+        $quote = $w->accept($w->issue($quote));
+        Livewire::test(ManageInvoices::class)->callAction('create', ['quote_id' => $quote->id])->assertHasNoActionErrors()->assertRedirect(BillingScheduleResource::getUrl('index', ['quote_id' => $quote->id]));
+        $this->assertSame(0, BusinessDocument::where('type', 'invoice')->count());
+        $this->get(BillingScheduleResource::getUrl('index', ['quote_id' => $quote->id]))->assertOk();
     }
 
     public function test_invoice_pdf_hides_extra_labels_and_places_due_date_under_heading(): void
